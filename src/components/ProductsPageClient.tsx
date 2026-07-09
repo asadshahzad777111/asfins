@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { ZrkCatalogCard } from "@/components/ZrkCatalogCard";
@@ -15,34 +16,61 @@ const ease = [0.22, 1, 0.36, 1] as const;
 
 export function ProductsPageClient({ products, materials }: ProductsPageClientProps) {
   const { t } = useLanguage();
+  const [filter, setFilter] = useState("");
 
-  const materialIds = new Set(materials.map((m) => m.swatch.id));
-  const items = [
-    ...materials.map((m) => ({
-      key: `mat-${m.catalogId}-${m.swatch.id}`,
-      href: `/materials/${m.catalogId}/${m.swatch.id}`,
-      imageSrc: m.swatch.imageUrl,
-      thumbSrc: m.swatch.thumbUrl,
-      hex: m.swatch.hex,
-      code: m.swatch.sheetCode,
-      title: m.swatch.name,
-      subtitle: m.swatch.materialCategory ?? m.catalogName,
-      meta: m.swatch.surfaceFinish,
-    })),
-    // Skip products already shown as catalog materials (avoid ZRK duplicates)
-    ...products
-      .filter((p) => !materialIds.has(p.id))
-      .map((p) => ({
-        key: `prod-${p.id}`,
-        href: `/products/${p.id}`,
-        imageSrc: p.image,
-        hex: undefined as string | undefined,
-        code: p.productCode ?? p.id,
-        title: p.name,
-        subtitle: p.category,
-        meta: p.surfaceFinish,
+  const items = useMemo(() => {
+    const materialIds = new Set(materials.map((m) => m.swatch.id));
+    const all = [
+      ...materials.map((m) => ({
+        key: `mat-${m.catalogId}-${m.swatch.id}`,
+        href: `/materials/${m.catalogId}/${m.swatch.id}`,
+        imageSrc: m.swatch.imageUrl,
+        thumbSrc: m.swatch.thumbUrl,
+        hex: m.swatch.hex,
+        code: m.swatch.sheetCode,
+        title: m.swatch.name,
+        subtitle: m.swatch.materialCategory ?? m.catalogName,
+        meta: m.swatch.surfaceFinish,
       })),
-  ];
+      // Skip products already shown as catalog materials (avoid ZRK duplicates)
+      ...products
+        .filter((p) => !materialIds.has(p.id))
+        .map((p) => ({
+          key: `prod-${p.id}`,
+          href: `/products/${p.id}`,
+          imageSrc: p.image,
+          thumbSrc: undefined as string | undefined,
+          hex: undefined as string | undefined,
+          code: p.productCode ?? p.id,
+          title: p.name,
+          subtitle: p.category,
+          meta: p.surfaceFinish,
+        })),
+    ];
+
+    const q = filter.trim().toLowerCase();
+    if (!q) return all;
+    const qDigits = q.replace(/\D/g, "");
+    return all
+      .map((item) => {
+        const code = item.code.toLowerCase();
+        const title = item.title.toLowerCase();
+        const codeDigits = code.replace(/\D/g, "");
+        let score = 0;
+        if (code === q || codeDigits === q || (qDigits && codeDigits === qDigits)) score = 3;
+        else if (code.startsWith(q) || (qDigits && codeDigits.startsWith(qDigits))) score = 2;
+        else if (
+          code.includes(q) ||
+          title.includes(q) ||
+          (qDigits && codeDigits.includes(qDigits))
+        )
+          score = 1;
+        return { item, score };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score || a.item.code.localeCompare(b.item.code))
+      .map((x) => x.item);
+  }, [materials, products, filter]);
 
   return (
     <div className="atelier-grain bg-base">
@@ -69,9 +97,41 @@ export function ProductsPageClient({ products, materials }: ProductsPageClientPr
       </section>
 
       <section className="relative z-[2] mx-auto max-w-6xl px-4 py-12 pb-28 sm:px-6 sm:py-14">
+        <div className="relative mb-8 max-w-md">
+          <input
+            type="search"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder={t("productsFilter")}
+            className="w-full rounded-sm border border-divider bg-marble py-3 pl-9 pr-9 font-mono-data text-sm placeholder:text-muted/50"
+            aria-label={t("productsFilter")}
+          />
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50"
+            width="14"
+            height="14"
+            viewBox="0 0 12 12"
+            fill="none"
+            aria-hidden
+          >
+            <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1" />
+            <path d="M8 8l2.5 2.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+          </svg>
+          {filter && (
+            <button
+              type="button"
+              onClick={() => setFilter("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/50 hover:text-muted"
+              aria-label={t("clearFilter")}
+            >
+              ×
+            </button>
+          )}
+        </div>
+
         {items.length === 0 ? (
           <p className="border border-divider bg-marble p-10 text-center text-muted">
-            {t("emptyProducts")}
+            {filter.trim() ? t("productsNoMatch") : t("emptyProducts")}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
@@ -86,7 +146,7 @@ export function ProductsPageClient({ products, materials }: ProductsPageClientPr
                 <ZrkCatalogCard
                   href={item.href}
                   imageSrc={item.imageSrc}
-                  thumbSrc={"thumbSrc" in item ? item.thumbSrc : undefined}
+                  thumbSrc={item.thumbSrc}
                   hex={item.hex}
                   code={item.code}
                   title={item.title}

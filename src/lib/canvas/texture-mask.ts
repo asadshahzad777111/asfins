@@ -32,7 +32,7 @@ function maskIsInside(
   return lum >= MASK_CUTOFF;
 }
 
-/** Tile size so texture repeats naturally without harsh pixel stretch. */
+/** Integer tile size so createPattern repeats without subpixel gaps. */
 export function computeTextureTileSize(
   textureW: number,
   textureH: number,
@@ -46,29 +46,53 @@ export function computeTextureTileSize(
   let scale = targetTile / nativeMax;
   scale = Math.min(scale, 1.5);
   scale = Math.max(scale, targetTile / nativeMax);
+  // Floor to whole pixels — fractional drawImage tiles leave white seam lines.
   return {
-    tileW: Math.max(48, textureW * scale),
-    tileH: Math.max(48, textureH * scale),
+    tileW: Math.max(48, Math.floor(textureW * scale)),
+    tileH: Math.max(48, Math.floor(textureH * scale)),
   };
 }
 
+/**
+ * Seamless fill via CanvasPattern('repeat').
+ * Avoids the white/gap lines from looping drawImage with float tile sizes.
+ */
 function drawTiledTexture(
   ctx: CanvasRenderingContext2D,
   texture: HTMLImageElement,
   width: number,
   height: number
 ): void {
-  const { tileW, tileH } = computeTextureTileSize(
-    texture.naturalWidth,
-    texture.naturalHeight,
-    width,
-    height
-  );
-  for (let y = 0; y < height; y += tileH) {
-    for (let x = 0; x < width; x += tileW) {
-      ctx.drawImage(texture, x, y, tileW, tileH);
+  const srcW = texture.naturalWidth || texture.width;
+  const srcH = texture.naturalHeight || texture.height;
+  if (srcW < 1 || srcH < 1) return;
+
+  const { tileW, tileH } = computeTextureTileSize(srcW, srcH, width, height);
+
+  // Bake one integer-sized tile so the pattern edges meet exactly.
+  const tile = document.createElement("canvas");
+  tile.width = tileW;
+  tile.height = tileH;
+  const tileCtx = tile.getContext("2d")!;
+  tileCtx.imageSmoothingEnabled = true;
+  tileCtx.imageSmoothingQuality = "high";
+  tileCtx.drawImage(texture, 0, 0, tileW, tileH);
+
+  const pattern = ctx.createPattern(tile, "repeat");
+  if (!pattern) {
+    // Fallback: integer-step drawImage loop (still no float gaps).
+    for (let y = 0; y < height; y += tileH) {
+      for (let x = 0; x < width; x += tileW) {
+        ctx.drawImage(tile, x, y);
+      }
     }
+    return;
   }
+
+  ctx.save();
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
 }
 
 function buildClipAlpha(mask: CanvasImageSource, width: number, height: number): HTMLCanvasElement {

@@ -30,13 +30,24 @@ export function MaterialCatalogGrid({
   const catalog = catalogs.find((c) => c.id === selectedCatalogId) ?? catalogs[0];
   const swatches: CatalogSwatch[] = useMemo(() => {
     const list = (catalog?.swatches ?? []).filter((s) => s.palette === activeZonePalette);
-    if (!filter.trim()) return list;
-    const q = filter.toLowerCase();
-    return list.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.sheetCode.toLowerCase().includes(q)
-    );
+    const q = filter.trim().toLowerCase();
+    if (!q) return list;
+    const qDigits = q.replace(/\D/g, "");
+    const scored = list
+      .map((s) => {
+        const code = s.sheetCode.toLowerCase();
+        const name = s.name.toLowerCase();
+        const codeDigits = code.replace(/\D/g, "");
+        let score = 0;
+        if (code === q || codeDigits === q || (qDigits && codeDigits === qDigits)) score = 3;
+        else if (code.startsWith(q) || (qDigits && codeDigits.startsWith(qDigits))) score = 2;
+        else if (code.includes(q) || name.includes(q) || (qDigits && codeDigits.includes(qDigits)))
+          score = 1;
+        return { s, score };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score || a.s.sheetCode.localeCompare(b.s.sheetCode));
+    return scored.map((x) => x.s);
   }, [catalog, activeZonePalette, filter]);
 
   const paletteLabel =
@@ -110,11 +121,13 @@ export function MaterialCatalogGrid({
 
         {swatches.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted">
-            {activeZonePalette === "wood"
-              ? t("noWoodColours")
-              : activeZonePalette === "tile"
-                ? t("noTileColours")
-                : t("noPaintColours")}
+            {filter.trim()
+              ? t("catalogNoMatch")
+              : activeZonePalette === "wood"
+                ? t("noWoodColours")
+                : activeZonePalette === "tile"
+                  ? t("noTileColours")
+                  : t("noPaintColours")}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-2.5">
