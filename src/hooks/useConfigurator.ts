@@ -102,12 +102,19 @@ export function useConfigurator(
     async (zone: string, hex: string, imageUrl?: string) => {
       setApplying(true);
       try {
+        let textureUrl = imageUrl;
         if (imageUrl) {
-          await rendererRef.current?.preloadTexture(imageUrl);
+          try {
+            await rendererRef.current?.preloadTexture(imageUrl);
+          } catch {
+            // R2/CORS or network failure — still apply solid hex so the
+            // preview updates; getZoneCanvas will fall back to colorizeMask.
+            textureUrl = undefined;
+          }
         }
         update({
           zoneColors: { [zone]: hex },
-          zoneTextures: { [zone]: imageUrl },
+          zoneTextures: { [zone]: textureUrl },
         });
       } finally {
         requestAnimationFrame(() => {

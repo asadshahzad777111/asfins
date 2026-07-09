@@ -41,21 +41,28 @@ Phir **Vercel** → Project → **Settings** → **Domains**:
 
 ---
 
-## Step 3 — MongoDB Atlas (free 512MB)
+## Step 3 — MongoDB Atlas (free M0) — database **`asfins` only**
 
-1. [mongodb.com/atlas](https://www.mongodb.com/atlas) → free M0 cluster
-2. Database user + password banao
-3. Network Access → `0.0.0.0/0` (Vercel ke liye)
-4. Connect → URI copy karo, database name: **`asfins`**
-5. Local se seed (optional):
+Full click-by-click guide: **[MONGODB_SETUP.md](./MONGODB_SETUP.md)**  
+Do **not** reuse asplygear or any other project URI.
+
+1. [cloud.mongodb.com](https://cloud.mongodb.com) → **Build a Database** → **M0 Free**
+2. **Database Access** → user + password (save password)
+3. **Network Access** → **Allow Access from Anywhere** → `0.0.0.0/0`
+4. **Connect** → Drivers → copy URI → replace `<password>`  
+   Prefer path `/asfins?...` and always set env `MONGODB_DB_NAME=asfins`
+5. Vercel → **Settings** → **Environment Variables**:
+   - `MONGODB_URI` = `mongodb+srv://...`
+   - `MONGODB_DB_NAME` = `asfins`
+6. Seed full catalogs (340 ZRK swatches) + products from local JSON:
 
 ```bash
 cd color-configurator
-set MONGODB_URI=mongodb+srv://...
-node scripts/seed-mongo.mjs
+# put MONGODB_URI + MONGODB_DB_NAME=asfins in .env.local first
+npm run seed-mongo
 ```
 
-Vercel par `MONGODB_URI` set karo — live site MongoDB use karegi.
+7. Vercel → **Redeploy**, then hard-refresh the live site.
 
 ---
 
@@ -63,13 +70,29 @@ Vercel par `MONGODB_URI` set karo — live site MongoDB use karegi.
 
 1. Cloudflare → **R2** → Create bucket `asfins-textures`
 2. **Public access** enable → `pub-xxxx.r2.dev` URL milega
-3. Local se images upload:
+3. **CORS (required for Design Studio canvas)** — R2 → bucket → **Settings** → **CORS policy**:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://asfins.com", "https://www.asfins.com", "http://localhost:3000"],
+    "AllowedMethods": ["GET", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag", "Content-Type"],
+    "MaxAgeSeconds": 86400
+  }
+]
+```
+
+Without CORS, browsers block `crossOrigin="anonymous"` texture loads and the studio cannot paint wood grain onto cabinets. The app also proxies textures via `/api/texture` as a fallback so Studio works even if R2 CORS is missing.
+
+4. Local se images upload:
 
 ```bash
 npm run mirror-zrk
 ```
 
-4. Baad mein custom domain: `cdn.asfins.com` → R2 bucket
+5. Baad mein custom domain: `cdn.asfins.com` → R2 bucket
 
 ---
 

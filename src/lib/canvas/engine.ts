@@ -6,6 +6,7 @@ import {
   layerHasAlphaVariation,
   type AlphaPolarity,
 } from "@/lib/images/mask-alpha";
+import { canvasSafeTextureUrl } from "@/lib/images/canvas-safe-url";
 import { textureizeMask } from "@/lib/canvas/texture-mask";
 
 export type FinishMode = "matt" | "glossy";
@@ -49,13 +50,15 @@ export function defaultZoneColors(zones: SceneZoneConfig[]): ZoneColors {
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
+  const safeSrc = canvasSafeTextureUrl(src);
   return new Promise((resolve, reject) => {
     const img = new Image();
+    // Required for getImageData / createPattern on remote textures.
     img.crossOrigin = "anonymous";
     img.referrerPolicy = "no-referrer";
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load: ${src}`));
-    img.src = src;
+    img.src = safeSrc;
   });
 }
 
