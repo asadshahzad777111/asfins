@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         hostname: "strapi.zrkgroup.com",
         pathname: "/uploads/**",
       },
+      {
+        protocol: "https",
+        hostname: "pub-901502176f964fd18fa9e875b6346c6f.r2.dev",
+        pathname: "/**",
+      },
     ],
   },
 };

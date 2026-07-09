@@ -13,7 +13,8 @@ function defaultProducts(): Product[] {
       id: "zrk-3001",
       name: "High Gloss Elite — Reddish Brown",
       pricePKR: 12500,
-      image: "/catalog/3001.png",
+      image:
+        "https://pub-901502176f964fd18fa9e875b6346c6f.r2.dev/catalog-textures/zrk/thumbs/3001.webp",
       category: "wood-laminate",
       description:
         "Premium wood-grain laminate with a mirror-like high gloss finish. Ideal for modern kitchen cabinetry with rich reddish-brown tones.",
@@ -31,7 +32,8 @@ function defaultProducts(): Product[] {
       id: "zrk-8062",
       name: "UV Lux — White/Grey Marble",
       pricePKR: 14800,
-      image: "/catalog/8062.png",
+      image:
+        "https://pub-901502176f964fd18fa9e875b6346c6f.r2.dev/catalog-textures/zrk/thumbs/8062.webp",
       category: "marble",
       description:
         "UV-cured marble-look surface with elegant white and grey veining. Durable, scratch-resistant finish for contemporary kitchens.",
@@ -74,18 +76,28 @@ async function writeJsonProducts(products: Product[]): Promise<void> {
 }
 
 async function readAllProducts(): Promise<Product[]> {
-  const col = await getCollection(COLLECTIONS.products);
-  if (col) {
-    const count = await col.countDocuments();
-    if (count === 0) {
-      const defaults = defaultProducts();
-      await mongoInsertMany(COLLECTIONS.products, defaults);
-      return defaults;
+  const jsonProducts = await readJsonProducts();
+  try {
+    const col = await getCollection(COLLECTIONS.products);
+    if (col) {
+      const count = await col.countDocuments();
+      if (count === 0) {
+        await mongoInsertMany(COLLECTIONS.products, jsonProducts);
+        return jsonProducts;
+      }
+      const docs = await col.find({}).toArray();
+      const mongoProducts = docs.map(({ _id, ...rest }) => rest as Product);
+      if (jsonProducts.length > mongoProducts.length) {
+        await col.deleteMany({});
+        await mongoInsertMany(COLLECTIONS.products, jsonProducts);
+        return jsonProducts;
+      }
+      return mongoProducts;
     }
-    const docs = await col.find({}).toArray();
-    return docs.map(({ _id, ...rest }) => rest as Product);
+  } catch (err) {
+    console.warn("[products] MongoDB read failed — using JSON:", (err as Error).message);
   }
-  return readJsonProducts();
+  return jsonProducts;
 }
 
 export async function ensureProductRegistry(): Promise<ProductRegistry> {

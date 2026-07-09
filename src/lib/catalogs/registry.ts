@@ -57,8 +57,30 @@ function defaultCatalogs(): Catalog[] {
       global: true,
       createdAt: now,
       swatches: [
-        { id: "zrk-3001", name: "Reddish Brown Wood", hex: "#6B3A2A", sheetCode: "3001", pricePKR: 12500, palette: "wood", imageUrl: "https://strapi.zrkgroup.com/uploads/3001_9522d56067.png" },
-        { id: "zrk-8062", name: "White/Grey Marble", hex: "#E8E4DF", sheetCode: "8062", pricePKR: 14800, palette: "wood", imageUrl: "https://strapi.zrkgroup.com/uploads/8062_621bf678d7.png" },
+        {
+          id: "zrk-3001",
+          name: "Reddish Brown Wood",
+          hex: "#6B3A2A",
+          sheetCode: "3001",
+          pricePKR: 12500,
+          palette: "wood",
+          imageUrl:
+            "https://pub-901502176f964fd18fa9e875b6346c6f.r2.dev/catalog-textures/zrk/3001.webp",
+          thumbUrl:
+            "https://pub-901502176f964fd18fa9e875b6346c6f.r2.dev/catalog-textures/zrk/thumbs/3001.webp",
+        },
+        {
+          id: "zrk-8062",
+          name: "White/Grey Marble",
+          hex: "#E8E4DF",
+          sheetCode: "8062",
+          pricePKR: 14800,
+          palette: "wood",
+          imageUrl:
+            "https://pub-901502176f964fd18fa9e875b6346c6f.r2.dev/catalog-textures/zrk/8062.webp",
+          thumbUrl:
+            "https://pub-901502176f964fd18fa9e875b6346c6f.r2.dev/catalog-textures/zrk/thumbs/8062.webp",
+        },
       ],
     },
   ];
@@ -105,23 +127,34 @@ async function writeJsonCatalogs(catalogs: Catalog[]): Promise<void> {
   await writeFile(REGISTRY_PATH, JSON.stringify({ catalogs }, null, 2), "utf-8");
 }
 
+function swatchCount(catalogs: Catalog[]): number {
+  return catalogs.reduce((n, c) => n + (c.swatches?.length ?? 0), 0);
+}
+
 async function readAllCatalogs(): Promise<Catalog[]> {
+  const jsonCatalogs = await readJsonCatalogs();
   try {
     const col = await getCollection(COLLECTIONS.catalogs);
     if (col) {
       const count = await col.countDocuments();
       if (count === 0) {
-        const defaults = defaultCatalogs();
-        await mongoInsertMany(COLLECTIONS.catalogs, defaults);
-        return defaults;
+        await mongoInsertMany(COLLECTIONS.catalogs, jsonCatalogs);
+        return jsonCatalogs;
       }
       const docs = await col.find({}).toArray();
-      return docs.map(({ _id, ...rest }) => rest as Catalog);
+      const mongoCatalogs = docs.map(({ _id, ...rest }) => rest as Catalog);
+      // Prefer richer JSON after deploys (e.g. 340 ZRK) over stale Mongo seed
+      if (swatchCount(jsonCatalogs) > swatchCount(mongoCatalogs)) {
+        await col.deleteMany({});
+        await mongoInsertMany(COLLECTIONS.catalogs, jsonCatalogs);
+        return jsonCatalogs;
+      }
+      return mongoCatalogs;
     }
   } catch (err) {
     console.warn("[catalogs] MongoDB read failed — using JSON:", (err as Error).message);
   }
-  return readJsonCatalogs();
+  return jsonCatalogs;
 }
 
 export async function ensureCatalogRegistry(): Promise<CatalogRegistry> {

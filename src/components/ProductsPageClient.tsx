@@ -16,6 +16,7 @@ const ease = [0.22, 1, 0.36, 1] as const;
 export function ProductsPageClient({ products, materials }: ProductsPageClientProps) {
   const { t } = useLanguage();
 
+  const materialIds = new Set(materials.map((m) => m.swatch.id));
   const items = [
     ...materials.map((m) => ({
       key: `mat-${m.catalogId}-${m.swatch.id}`,
@@ -28,16 +29,19 @@ export function ProductsPageClient({ products, materials }: ProductsPageClientPr
       subtitle: m.swatch.materialCategory ?? m.catalogName,
       meta: m.swatch.surfaceFinish,
     })),
-    ...products.map((p) => ({
-      key: `prod-${p.id}`,
-      href: `/products/${p.id}`,
-      imageSrc: p.image,
-      hex: undefined,
-      code: p.productCode ?? p.id,
-      title: p.name,
-      subtitle: p.category,
-      meta: p.surfaceFinish,
-    })),
+    // Skip products already shown as catalog materials (avoid ZRK duplicates)
+    ...products
+      .filter((p) => !materialIds.has(p.id))
+      .map((p) => ({
+        key: `prod-${p.id}`,
+        href: `/products/${p.id}`,
+        imageSrc: p.image,
+        hex: undefined as string | undefined,
+        code: p.productCode ?? p.id,
+        title: p.name,
+        subtitle: p.category,
+        meta: p.surfaceFinish,
+      })),
   ];
 
   return (
