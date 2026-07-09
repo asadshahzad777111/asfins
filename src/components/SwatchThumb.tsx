@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-
 interface SwatchThumbProps {
   hex: string;
   imageUrl?: string;
@@ -35,27 +33,24 @@ export function SwatchThumb({
   const src = preferFull ? (imageUrl ?? thumbUrl) : (thumbUrl ?? imageUrl);
 
   if (src) {
-    const isLocal = src.startsWith("/");
-
     return (
-      <span className={`relative block ${className} ${radius} overflow-hidden border-2 border-divider shadow-md`}>
-        <Image
-          src={src}
-          alt={name}
-          fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="object-cover"
-          priority={priority}
-          unoptimized={!isLocal}
-        />
-      </span>
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={name}
+        className={`${className} ${radius} border-2 border-divider object-cover shadow-md`}
+        loading={priority ? "eager" : "lazy"}
+        decoding="async"
+        referrerPolicy="no-referrer"
+      />
     );
   }
 
   return (
     <span
-      className={`${className} ${radius} border-2 border-divider shadow-md`}
-      style={{ backgroundColor: hex }}
+      className={`${className} ${radius} block border-2 border-divider shadow-md`}
+      style={{ backgroundColor: hex || "#888888" }}
+      title={name}
       aria-hidden
     />
   );
