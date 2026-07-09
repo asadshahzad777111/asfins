@@ -8,6 +8,9 @@ import {
 const MASK_CUTOFF = 0.5;
 type MaskMode = "alpha" | "luminance";
 
+/** Overlap adjacent tiles so AA / edge pixels never leave a 1px gap. */
+const TILE_OVERLAP_PX = 2;
+
 function detectMaskModeAndPolarity(data: Uint8ClampedArray): {
   mode: MaskMode;
   polarity: AlphaPolarity;
@@ -32,7 +35,7 @@ function maskIsInside(
   return lum >= MASK_CUTOFF;
 }
 
-/** Integer tile size so createPattern repeats without subpixel gaps. */
+/** Integer tile size — fractional drawImage destinations create seam lines. */
 export function computeTextureTileSize(
   textureW: number,
   textureH: number,
@@ -43,10 +46,7 @@ export function computeTextureTileSize(
   const longSide = Math.max(canvasW, canvasH);
   const targetTile = Math.max(96, Math.min(shortSide / 3, longSide / 8));
   const nativeMax = Math.max(textureW, textureH, 1);
-  let scale = targetTile / nativeMax;
-  scale = Math.min(scale, 1.5);
-  scale = Math.max(scale, targetTile / nativeMax);
-  // Floor to whole pixels — fractional drawImage tiles leave white seam lines.
+  const scale = Math.min(1.5, targetTile / nativeMax);
   return {
     tileW: Math.max(48, Math.floor(textureW * scale)),
     tileH: Math.max(48, Math.floor(textureH * scale)),
@@ -54,8 +54,40 @@ export function computeTextureTileSize(
 }
 
 /**
- * Seamless fill via CanvasPattern('repeat').
- * Avoids the white/gap lines from looping drawImage with float tile sizes.
+ * Bake one tile, then force opposite edges to match.
+ * Stops createPattern / tile joins from showing a bright AA hairline
+ * when the source swatch is not perfectly seamless (common for solid hex webps).
+ */
+function bakeSealedTile(
+  texture: HTMLImageElement,
+  tileW: number,
+  tileH: number
+): HTMLCanvasElement {
+  const tile = document.createElement("canvas");
+  tile.width = tileW;
+  tile.height = tileH;
+  const tileCtx = tile.getContext("2d", { willReadFrequently: true })!;
+  tileCtx.imageSmoothingEnabled = true;
+  tileCtx.imageSmoothingQuality = "high";
+  tileCtx.drawImage(texture, 0, 0, tileW, tileH);
+
+  // Mirror a few edge pixels so overlapped joins match (solid hex webps
+  // often have compression noise on the border that reads as a seam line).
+  const seal = Math.min(TILE_OVERLAP_PX, Math.floor(tileW / 4), Math.floor(tileH / 4));
+  if (seal >= 1 && tileW > seal * 2 && tileH > seal * 2) {
+    const leftStrip = tileCtx.getImageData(0, 0, seal, tileH);
+    tileCtx.putImageData(leftStrip, tileW - seal, 0);
+    const topStrip = tileCtx.getImageData(0, 0, tileW, seal);
+    tileCtx.putImageData(topStrip, 0, tileH - seal);
+  }
+
+  return tile;
+}
+
+/**
+ * Fill with opaque overlapping tiles at integer coords.
+ * createPattern('repeat') still leaves 1px AA gaps on many browsers —
+ * especially visible on near-solid charcoal swatches and large scenes.
  */
 function drawTiledTexture(
   ctx: CanvasRenderingContext2D,
@@ -68,30 +100,38 @@ function drawTiledTexture(
   if (srcW < 1 || srcH < 1) return;
 
   const { tileW, tileH } = computeTextureTileSize(srcW, srcH, width, height);
+  const tile = bakeSealedTile(texture, tileW, tileH);
 
-  // Bake one integer-sized tile so the pattern edges meet exactly.
-  const tile = document.createElement("canvas");
-  tile.width = tileW;
-  tile.height = tileH;
-  const tileCtx = tile.getContext("2d")!;
-  tileCtx.imageSmoothingEnabled = true;
-  tileCtx.imageSmoothingQuality = "high";
-  tileCtx.drawImage(texture, 0, 0, tileW, tileH);
-
-  const pattern = ctx.createPattern(tile, "repeat");
-  if (!pattern) {
-    // Fallback: integer-step drawImage loop (still no float gaps).
-    for (let y = 0; y < height; y += tileH) {
-      for (let x = 0; x < width; x += tileW) {
-        ctx.drawImage(tile, x, y);
-      }
-    }
-    return;
-  }
+  const stepX = Math.max(1, tileW - TILE_OVERLAP_PX);
+  const stepY = Math.max(1, tileH - TILE_OVERLAP_PX);
 
   ctx.save();
-  ctx.fillStyle = pattern;
-  ctx.fillRect(0, 0, width, height);
+  // Integer blits only — smoothing here reintroduces soft gaps at joins.
+  ctx.imageSmoothingEnabled = false;
+
+  for (let y = 0; y < height; y += stepY) {
+    for (let x = 0; x < width; x += stepX) {
+      ctx.drawImage(tile, x, y);
+    }
+  }
+
+  // Guarantee right / bottom coverage when the last step undershoots.
+  const lastX = Math.max(0, width - tileW);
+  const lastY = Math.max(0, height - tileH);
+  if (lastX % stepX !== 0) {
+    for (let y = 0; y < height; y += stepY) {
+      ctx.drawImage(tile, lastX, y);
+    }
+  }
+  if (lastY % stepY !== 0) {
+    for (let x = 0; x < width; x += stepX) {
+      ctx.drawImage(tile, x, lastY);
+    }
+  }
+  if (lastX % stepX !== 0 || lastY % stepY !== 0) {
+    ctx.drawImage(tile, lastX, lastY);
+  }
+
   ctx.restore();
 }
 
