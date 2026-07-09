@@ -1,0 +1,104 @@
+{
+  "scenes": [
+    {
+      "id": "kitchen-1",
+      "name": "Modern Black Kitchen",
+      "description": "AI kitchen — black cabinets cut transparent (Photopea-style). Tap wood colour on cabinets & island.",
+      "category": "kitchen",
+      "width": 1024,
+      "height": 682,
+      "thumbnail": "/scenes/kitchen-1/thumb.jpg",
+      "basePhoto": "/scenes/kitchen-1/base.jpg",
+      "highlightMap": "/scenes/kitchen-1/highlight-gloss.png",
+      "nightGlow": "/scenes/kitchen-1/night-glow.png",
+      "createdAt": "2026-07-08T10:47:47.687Z",
+      "published": true,
+      "catalogIds": [
+        "artisan-laminates",
+        "greenply",
+        "local-paint",
+        "zrk-group"
+      ],
+      "zones": [
+        {
+          "id": "upper-cabinets",
+          "label": "Upper Cabinets",
+          "palette": "wood",
+          "zoneGroup": "wood",
+          "zIndex": 10,
+          "glossyHighlight": true,
+          "maskPath": "/scenes/kitchen-1/mask-upper-cabinets.png"
+        },
+        {
+          "id": "lower-cabinets",
+          "label": "Lower Cabinets & Island",
+          "palette": "wood",
+          "zoneGroup": "wood",
+          "zIndex": 11,
+          "glossyHighlight": true,
+          "maskPath": "/scenes/kitchen-1/mask-lower-cabinets.png"
+        }
+      ]
+    },
+    {
+      "id": "kitchen-real",
+      "name": "Real Kitchen Photo",
+      "description": "Aapki kitchen photo — cabinet colour catalog se change karein",
+      "category": "kitchen",
+      "width": 768,
+      "height": 1024,
+      "thumbnail": "/scenes/kitchen-real/base.jpg",
+      "basePhoto": "/scenes/kitchen-real/base.jpg",
+      "highlightMap": "/scenes/kitchen-real/highlight-gloss.png",
+      "nightGlow": "/scenes/kitchen-real/night-glow.png",
+      "createdAt": "2026-07-08T10:47:47.687Z",
+      "published": true,
+      "catalogIds": [
+        "artisan-laminates",
+        "greenply",
+        "zrk-group"
+      ],
+      "zones": [
+        {
+          "id": "cabinets",
+          "label": "Lower Cabinets",
+          "palette": "wood",
+          "zIndex": 3,
+          "glossyHighlight": true,
+          "maskPath": "/scenes/kitchen-real/mask-cabinets.png"
+        }
+      ]
+    },
+    {
+      "id": "new2",
+      "name": "new2",
+      "description": "new2 — apna colour choose karein",
+      "category": "kitchen",
+      "width": 6960,
+      "height": 4640,
+      "thumbnail": "/scenes/new2/thumb.jpg",
+      "basePhoto": "/scenes/new2/base.png",
+      "highlightMap": "/scenes/new2/highlight-gloss.png",
+      "nightGlow": "/scenes/new2/night-glow.png",
+      "zones": [
+        {
+          "id": "lower-cabinets",
+          "label": "Lower Cabinets",
+          "palette": "wood",
+          "zoneGroup": "wood",
+          "zIndex": 10,
+          "glossyHighlight": true,
+          "maskPath": "/scenes/new2/mask-lower-cabinets.png"
+        }
+      ],
+      "catalogIds": [
+        "artisan-laminates",
+        "greenply",
+        "local-paint",
+        "zrk-group"
+      ],
+      "createdAt": "2026-07-08T19:53:26.757Z",
+      "published": true
+    }
+  ]
+}

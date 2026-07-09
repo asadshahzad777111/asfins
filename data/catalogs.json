@@ -1,0 +1,200 @@
+{
+  "catalogs": [
+    {
+      "id": "artisan-laminates",
+      "companyName": "Artisan Laminates",
+      "global": true,
+      "createdAt": "2026-07-08T10:49:38.076Z",
+      "swatches": [
+        {
+          "id": "al-ch",
+          "name": "Charcoal",
+          "hex": "#3D4555",
+          "sheetCode": "LAM-CH-01",
+          "pricePKR": 1850,
+          "palette": "wood"
+        },
+        {
+          "id": "al-wal",
+          "name": "Walnut",
+          "hex": "#5C4033",
+          "sheetCode": "LAM-WAL-18",
+          "pricePKR": 2200,
+          "palette": "wood"
+        },
+        {
+          "id": "al-oak",
+          "name": "Oak",
+          "hex": "#C4A574",
+          "sheetCode": "LAM-OAK-12",
+          "pricePKR": 1950,
+          "palette": "wood"
+        },
+        {
+          "id": "al-teak",
+          "name": "Teak",
+          "hex": "#8B6914",
+          "sheetCode": "LAM-TEK-09",
+          "pricePKR": 2400,
+          "palette": "wood"
+        },
+        {
+          "id": "al-ash",
+          "name": "Ash",
+          "hex": "#B8A99A",
+          "sheetCode": "LAM-ASH-06",
+          "pricePKR": 1650,
+          "palette": "wood"
+        },
+        {
+          "id": "al-wht",
+          "name": "White PVC",
+          "hex": "#F5F0E8",
+          "sheetCode": "LAM-WHT-02",
+          "pricePKR": 1500,
+          "palette": "wood"
+        },
+        {
+          "id": "al-esp",
+          "name": "Espresso",
+          "hex": "#4A3228",
+          "sheetCode": "LAM-ESP-15",
+          "pricePKR": 2100,
+          "palette": "wood"
+        },
+        {
+          "id": "al-hny",
+          "name": "Honey Oak",
+          "hex": "#D4A96A",
+          "sheetCode": "LAM-HNY-11",
+          "pricePKR": 2000,
+          "palette": "wood"
+        },
+        {
+          "id": "al-slt",
+          "name": "Slate Grey",
+          "hex": "#6B7280",
+          "sheetCode": "LAM-SLT-07",
+          "pricePKR": 1750,
+          "palette": "wood"
+        }
+      ]
+    },
+    {
+      "id": "greenply",
+      "companyName": "Greenply",
+      "global": true,
+      "createdAt": "2026-07-08T10:49:38.076Z",
+      "swatches": [
+        {
+          "id": "gp-nvy",
+          "name": "Navy Blue",
+          "hex": "#2C3E50",
+          "sheetCode": "GP-NVY-14",
+          "pricePKR": 2100,
+          "palette": "wood"
+        },
+        {
+          "id": "gp-sge",
+          "name": "Sage Green",
+          "hex": "#7D8B6A",
+          "sheetCode": "GP-SGE-08",
+          "pricePKR": 1900,
+          "palette": "wood"
+        },
+        {
+          "id": "gp-mah",
+          "name": "Mahogany",
+          "hex": "#6B3A2A",
+          "sheetCode": "GP-MAH-22",
+          "pricePKR": 2300,
+          "palette": "wood"
+        },
+        {
+          "id": "gp-map",
+          "name": "Maple",
+          "hex": "#D4B896",
+          "sheetCode": "GP-MAP-05",
+          "pricePKR": 1750,
+          "palette": "wood"
+        }
+      ]
+    },
+    {
+      "id": "local-paint",
+      "companyName": "Local Paint Co",
+      "global": true,
+      "createdAt": "2026-07-08T10:49:38.076Z",
+      "swatches": [
+        {
+          "id": "lp-ow",
+          "name": "Off-White",
+          "hex": "#F5F0E8",
+          "sheetCode": "PNT-OW-01",
+          "pricePKR": 850,
+          "palette": "paint"
+        },
+        {
+          "id": "lp-lg",
+          "name": "Light Grey",
+          "hex": "#C8C2B8",
+          "sheetCode": "PNT-LG-04",
+          "pricePKR": 900,
+          "palette": "paint"
+        },
+        {
+          "id": "lp-bg",
+          "name": "Beige",
+          "hex": "#D9CDB8",
+          "sheetCode": "PNT-BG-07",
+          "pricePKR": 880,
+          "palette": "paint"
+        },
+        {
+          "id": "lp-ch",
+          "name": "Charcoal",
+          "hex": "#3D3832",
+          "sheetCode": "PNT-CH-11",
+          "pricePKR": 950,
+          "palette": "paint"
+        },
+        {
+          "id": "lp-ws",
+          "name": "Warm Stone",
+          "hex": "#A89B8A",
+          "sheetCode": "PNT-WS-03",
+          "pricePKR": 920,
+          "palette": "paint"
+        }
+      ]
+    },
+    {
+      "id": "zrk-group",
+      "companyName": "ZRK Group",
+      "global": true,
+      "createdAt": "2026-07-09T13:00:00.000Z",
+      "swatches": [
+        {
+          "id": "zrk-3001",
+          "name": "Reddish Brown Wood",
+          "hex": "#6B3A2A",
+          "sheetCode": "3001",
+          "pricePKR": 12500,
+          "palette": "wood",
+          "imageUrl": "/catalog-textures/zrk/3001.webp",
+          "thumbUrl": "/catalog-textures/zrk/thumbs/3001.webp"
+        },
+        {
+          "id": "zrk-8062",
+          "name": "White/Grey Marble",
+          "hex": "#E8E4DF",
+          "sheetCode": "8062",
+          "pricePKR": 14800,
+          "palette": "wood",
+          "imageUrl": "/catalog-textures/zrk/8062.webp",
+          "thumbUrl": "/catalog-textures/zrk/thumbs/8062.webp"
+        }
+      ]
+    }
+  ]
+}

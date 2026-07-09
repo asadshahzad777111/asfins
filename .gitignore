@@ -30,8 +30,17 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files (secrets — never commit)
+.env
+.env.*
+!.env.example
+
+# App JSON data (commit catalogs/products/scenes for deploy)
+# Ignore large scrape/temp dumps only
+/data/zrk-mdf-scraped.json
+/data/zrk-mdf-import-temp.json
+/data/zrk-sync-new.json
+/data/zrk-import.json
 
 # vercel
 .vercel
@@ -39,3 +48,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# OS / editor
+Thumbs.db
+.DS_Store

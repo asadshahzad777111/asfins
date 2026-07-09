@@ -1,17 +1,34 @@
 {
-  "name": "color-configurator",
+  "name": "asfins",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:clean": "node scripts/clean-next.mjs && next dev",
+    "clean": "node scripts/clean-next.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate-assets": "node scripts/generate-assets.mjs",
+    "process-real-kitchen": "node scripts/process-real-kitchen.mjs",
+    "setup-kitchen-modern": "node scripts/setup-kitchen-modern.mjs",
+    "photopea-cutout": "node scripts/photopea-cutout-kitchen.mjs",
+    "mirror-zrk": "node scripts/mirror-zrk-textures.mjs",
+    "sync-zrk": "node scripts/sync-zrk-mdf.mjs",
+    "seed-mongo": "node scripts/seed-mongo.mjs",
+    "import-zrk": "node scripts/import-zrk-batch.mjs",
+    "scrape-zrk-mdf": "node scripts/scrape-zrk-mdf.mjs",
+    "scrape-zrk-mdf:import": "node scripts/scrape-zrk-mdf.mjs --import",
+    "analyze-mask": "node scripts/analyze-mask.mjs"
   },
   "dependencies": {
+    "framer-motion": "^12.42.2",
+    "jose": "^6.2.3",
+    "mongodb": "^6.17.0",
     "next": "16.2.10",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "sharp": "^0.34.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

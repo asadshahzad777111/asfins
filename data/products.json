@@ -1,0 +1,38 @@
+{
+  "products": [
+    {
+      "id": "zrk-3001",
+      "name": "High Gloss Elite — Reddish Brown",
+      "pricePKR": 12500,
+      "image": "/catalog-textures/zrk/thumbs/3001.webp",
+      "category": "wood-laminate",
+      "description": "Premium wood-grain laminate with a mirror-like high gloss finish. Ideal for modern kitchen cabinetry with rich reddish-brown tones.",
+      "active": true,
+      "createdAt": "2026-07-09T13:00:00.000Z",
+      "productCode": "3001",
+      "surfaceFinish": "High Gloss Elite",
+      "colorDescription": "Reddish Brown",
+      "dimensions": "2440 × 1220 mm",
+      "thickness": "16 mm",
+      "idealApplications": "Kitchen Cabinets",
+      "brandName": "ZRK Group"
+    },
+    {
+      "id": "zrk-8062",
+      "name": "UV Lux — White/Grey Marble",
+      "pricePKR": 14800,
+      "image": "/catalog-textures/zrk/thumbs/8062.webp",
+      "category": "marble",
+      "description": "UV-cured marble-look surface with elegant white and grey veining. Durable, scratch-resistant finish for contemporary kitchens.",
+      "active": true,
+      "createdAt": "2026-07-09T13:00:00.000Z",
+      "productCode": "8062",
+      "surfaceFinish": "UV Lux",
+      "colorDescription": "White/Grey",
+      "dimensions": "2440 × 1220 mm / 2800 × 1220 mm",
+      "thickness": "16 / 17 / 18 mm",
+      "idealApplications": "Kitchen Cabinets",
+      "brandName": "ZRK Group"
+    }
+  ]
+}
