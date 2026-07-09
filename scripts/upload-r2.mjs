@@ -25,19 +25,32 @@ import { createHash, createHmac } from "crypto";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 
-function loadEnv() {
-  const p = path.join(ROOT, ".env.local");
-  if (!existsSync(p)) return;
-  const raw = readFileSync(p, "utf8");
+function loadEnvFile(filePath) {
+  if (!existsSync(filePath)) return false;
+  const raw = readFileSync(filePath, "utf8");
   for (const line of raw.split(/\r?\n/)) {
-    const m = line.match(/^([^#=]+)=(.*)$/);
-    if (m && !process.env[m[1].trim()]) {
-      process.env[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, "");
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
     }
+    if (!process.env[key]) process.env[key] = val;
   }
+  return true;
 }
 
-loadEnv();
+const loadedLocal = loadEnvFile(path.join(ROOT, ".env.local"));
+const loadedEnv = loadEnvFile(path.join(ROOT, ".env"));
+console.log(
+  `Env files: .env.local=${loadedLocal ? "ok" : "missing"}, .env=${loadedEnv ? "ok" : "missing"}`
+);
 
 const ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const ACCESS_KEY = process.env.R2_ACCESS_KEY_ID;
@@ -45,18 +58,16 @@ const SECRET_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const BUCKET = process.env.R2_BUCKET_NAME ?? "asfins-textures";
 const PUBLIC_URL = (process.env.R2_PUBLIC_URL ?? "").replace(/\/$/, "");
 
-if (!ACCOUNT_ID || !ACCESS_KEY || !SECRET_KEY || !PUBLIC_URL) {
-  console.error(`
-Missing R2 env. Add to .env.local:
+const missing = [
+  !ACCOUNT_ID && "R2_ACCOUNT_ID",
+  !ACCESS_KEY && "R2_ACCESS_KEY_ID",
+  !SECRET_KEY && "R2_SECRET_ACCESS_KEY",
+  !PUBLIC_URL && "R2_PUBLIC_URL",
+].filter(Boolean);
 
-R2_ACCOUNT_ID=your_account_id
-R2_ACCESS_KEY_ID=...
-R2_SECRET_ACCESS_KEY=...
-R2_BUCKET_NAME=asfins-textures
-R2_PUBLIC_URL=https://pub-xxxx.r2.dev
-
-Cloudflare → R2 → Create bucket → Enable public access → copy pub URL.
-`);
+if (missing.length) {
+  console.error(`Missing R2 env: ${missing.join(", ")}`);
+  console.error("Put them in .env.local (never commit) then re-run: npm run upload-r2");
   process.exit(1);
 }
 
