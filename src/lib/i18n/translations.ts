@@ -95,6 +95,9 @@ export const translations = {
     productsSubtitle:
       "Browse partner dealer products — floor, wall, laminate, marble. Tap a swatch for details and quote.",
     emptyProducts: "No products yet. Add them from the admin panel.",
+    chooseBrandFolder: "Choose a brand catalog",
+    allBrandFolders: "← All brands",
+    folderSheetCount: "{count} sheets",
     tryInConfigurator: "Try in configurator →",
     viewProduct: "View details →",
     allProducts: "← All products",
@@ -533,6 +536,9 @@ export const translations = {
     productsSubtitle:
       "Partner dealers ke products — floor, wall, laminate, marble. Swatch tap karein, details aur quote.",
     emptyProducts: "Abhi koi product nahi. Admin panel se add karein.",
+    chooseBrandFolder: "Brand catalog choose karein",
+    allBrandFolders: "← Tamam brands",
+    folderSheetCount: "{count} sheets",
     tryInConfigurator: "Configurator mein try karein →",
     viewProduct: "Details dekhein →",
     allProducts: "← Tamam products",

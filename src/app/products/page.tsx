@@ -8,5 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function ProductsPage() {
   const [products, catalogs] = await Promise.all([listProducts(true), listCatalogs()]);
   const materials = flattenCatalogMaterials(catalogs);
-  return <ProductsPageClient products={products} materials={materials} />;
+  return (
+    <ProductsPageClient products={products} materials={materials} catalogs={catalogs} />
+  );
 }

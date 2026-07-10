@@ -418,7 +418,8 @@ export class SceneRenderer {
           this.scene.width,
           this.scene.height,
           useGlossy,
-          this.assets.base
+          this.assets.base,
+          textureUrl
         );
       } catch {
         colored = colorizeMask(

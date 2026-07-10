@@ -4,6 +4,10 @@ import {
   layerHasAlphaVariation,
   type AlphaPolarity,
 } from "@/lib/images/mask-alpha";
+import {
+  galleryTextureCrop,
+  type TextureCropRect,
+} from "@/lib/canvas/texture-crop";
 
 const MASK_CUTOFF = 0.5;
 type MaskMode = "alpha" | "luminance";
@@ -35,6 +39,15 @@ function maskIsInside(
   return lum >= MASK_CUTOFF;
 }
 
+/**
+ * Physical laminate sheet: 8 ft × 4 ft (2440×1220 mm) → aspect 2:1.
+ * Scenes have no metric scale, so we approximate coverage: a typical kitchen
+ * cabinet photo spans ~16 ft across the visible run → ~2 sheets along the
+ * scene's longer axis. One canvas tile = one physical sheet at that scale.
+ */
+const SHEET_ASPECT = 2; // length / width (8 / 4)
+const DEFAULT_SHEETS_ALONG_LONG_AXIS = 2;
+
 /** Integer tile size — fractional drawImage destinations create seam lines. */
 export function computeTextureTileSize(
   textureW: number,
@@ -42,15 +55,16 @@ export function computeTextureTileSize(
   canvasW: number,
   canvasH: number
 ): { tileW: number; tileH: number } {
-  const shortSide = Math.min(canvasW, canvasH);
-  const longSide = Math.max(canvasW, canvasH);
-  const targetTile = Math.max(96, Math.min(shortSide / 3, longSide / 8));
-  const nativeMax = Math.max(textureW, textureH, 1);
-  const scale = Math.min(1.5, targetTile / nativeMax);
-  return {
-    tileW: Math.max(48, Math.floor(textureW * scale)),
-    tileH: Math.max(48, Math.floor(textureH * scale)),
-  };
+  const longSide = Math.max(canvasW, canvasH, 1);
+  const sheetLongPx = Math.max(64, Math.floor(longSide / DEFAULT_SHEETS_ALONG_LONG_AXIS));
+  const sheetShortPx = Math.max(32, Math.floor(sheetLongPx / SHEET_ASPECT));
+
+  // Landscape source → 8 ft along X; otherwise portrait (common on cabinet faces).
+  const srcLandscape = textureW > textureH * 1.1;
+  if (srcLandscape) {
+    return { tileW: sheetLongPx, tileH: sheetShortPx };
+  }
+  return { tileW: sheetShortPx, tileH: sheetLongPx };
 }
 
 /**
@@ -61,7 +75,8 @@ export function computeTextureTileSize(
 function bakeSealedTile(
   texture: HTMLImageElement,
   tileW: number,
-  tileH: number
+  tileH: number,
+  crop: TextureCropRect | null
 ): HTMLCanvasElement {
   const tile = document.createElement("canvas");
   tile.width = tileW;
@@ -69,7 +84,21 @@ function bakeSealedTile(
   const tileCtx = tile.getContext("2d", { willReadFrequently: true })!;
   tileCtx.imageSmoothingEnabled = true;
   tileCtx.imageSmoothingQuality = "high";
-  tileCtx.drawImage(texture, 0, 0, tileW, tileH);
+  if (crop) {
+    tileCtx.drawImage(
+      texture,
+      crop.sx,
+      crop.sy,
+      crop.sw,
+      crop.sh,
+      0,
+      0,
+      tileW,
+      tileH
+    );
+  } else {
+    tileCtx.drawImage(texture, 0, 0, tileW, tileH);
+  }
 
   // Mirror a few edge pixels so overlapped joins match (solid hex webps
   // often have compression noise on the border that reads as a seam line).
@@ -93,14 +122,19 @@ function drawTiledTexture(
   ctx: CanvasRenderingContext2D,
   texture: HTMLImageElement,
   width: number,
-  height: number
+  height: number,
+  textureUrl?: string
 ): void {
-  const srcW = texture.naturalWidth || texture.width;
-  const srcH = texture.naturalHeight || texture.height;
-  if (srcW < 1 || srcH < 1) return;
+  const fullW = texture.naturalWidth || texture.width;
+  const fullH = texture.naturalHeight || texture.height;
+  if (fullW < 1 || fullH < 1) return;
+
+  const crop = textureUrl ? galleryTextureCrop(textureUrl, fullW, fullH) : null;
+  const srcW = crop?.sw ?? fullW;
+  const srcH = crop?.sh ?? fullH;
 
   const { tileW, tileH } = computeTextureTileSize(srcW, srcH, width, height);
-  const tile = bakeSealedTile(texture, tileW, tileH);
+  const tile = bakeSealedTile(texture, tileW, tileH, crop);
 
   const stepX = Math.max(1, tileW - TILE_OVERLAP_PX);
   const stepY = Math.max(1, tileH - TILE_OVERLAP_PX);
@@ -180,14 +214,15 @@ export function textureizeMask(
   width: number,
   height: number,
   glossy: boolean,
-  luminanceSource?: CanvasImageSource
+  luminanceSource?: CanvasImageSource,
+  textureUrl?: string
 ): HTMLCanvasElement {
   const off = document.createElement("canvas");
   off.width = width;
   off.height = height;
   const ctx = off.getContext("2d")!;
 
-  drawTiledTexture(ctx, texture, width, height);
+  drawTiledTexture(ctx, texture, width, height, textureUrl ?? texture.src);
 
   if (luminanceSource) {
     const basePx = readImageData(luminanceSource, width, height);
