@@ -12,6 +12,7 @@ import { BrandLogo } from "@/components/BrandLogo";
 import type { Catalog } from "@/lib/catalogs/types";
 import type { CatalogMaterial } from "@/lib/catalogs/materials";
 import type { Product } from "@/lib/products/types";
+import { Reveal } from "@/components/motion/Reveal";
 
 interface ProductsPageClientProps {
   products: Product[];
@@ -55,13 +56,14 @@ export function ProductsPageClient({
         subtitle: m.swatch.materialCategory ?? m.catalogName,
         meta: m.swatch.surfaceFinish,
       })),
-      // Skip products already shown as catalog materials (avoid ZRK duplicates)
       ...products
         .filter((p) => !materialIds.has(p.id))
         .filter((p) => {
           if (!openCatalogId) return true;
           if (!brandName) return false;
-          return (p.brandName ?? p.category ?? "").toLowerCase().includes(brandName.split(" ")[0]);
+          return (p.brandName ?? p.category ?? "")
+            .toLowerCase()
+            .includes(brandName.split(" ")[0]);
         })
         .map((p) => ({
           key: `prod-${p.id}`,
@@ -85,8 +87,10 @@ export function ProductsPageClient({
         const title = item.title.toLowerCase();
         const codeDigits = code.replace(/\D/g, "");
         let score = 0;
-        if (code === q || codeDigits === q || (qDigits && codeDigits === qDigits)) score = 3;
-        else if (code.startsWith(q) || (qDigits && codeDigits.startsWith(qDigits))) score = 2;
+        if (code === q || codeDigits === q || (qDigits && codeDigits === qDigits))
+          score = 3;
+        else if (code.startsWith(q) || (qDigits && codeDigits.startsWith(qDigits)))
+          score = 2;
         else if (
           code.includes(q) ||
           title.includes(q) ||
@@ -103,33 +107,29 @@ export function ProductsPageClient({
   const showFolders = folders.length > 1 && !openCatalogId && !filter.trim();
 
   return (
-    <div className="atelier-grain bg-base">
-      <section className="relative z-[2] overflow-hidden border-b border-divider bg-marble">
-        <div
-          className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-brass/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+    <div className="bg-paper text-ink">
+      <section className="border-b border-ink">
+        <div className="px-[clamp(1.25rem,4vw,2.5rem)] py-16 sm:py-24">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease }}
+            transition={{ duration: 0.65, ease }}
           >
-            <p className="font-mono-data text-[10px] uppercase tracking-[0.35em] text-brass">
+            <p className="text-[13px] uppercase tracking-[0.14em] text-muted">
               {t("products")}
             </p>
-            <h1 className="font-display mt-4 text-4xl leading-[1.05] tracking-tight text-charcoal sm:text-5xl">
-              {t("productsTitle")}
-            </h1>
-            <p className="mt-4 max-w-xl text-lg text-muted">{t("productsSubtitle")}</p>
+            <h1 className="text-heading-lg mt-4 max-w-3xl">{t("productsTitle")}</h1>
+            <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-muted">
+              {t("productsSubtitle")}
+            </p>
           </motion.div>
         </div>
       </section>
 
-      <section className="relative z-[2] mx-auto max-w-6xl px-4 py-12 pb-28 sm:px-6 sm:py-14">
+      <section className="px-[clamp(1.25rem,4vw,2.5rem)] py-12 pb-28 sm:py-16">
         {showFolders ? (
-          <div className="space-y-6">
-            <p className="font-mono-data text-[10px] uppercase tracking-[0.25em] text-muted">
+          <div className="space-y-8">
+            <p className="text-[13px] uppercase tracking-[0.12em] text-muted">
               {t("chooseBrandFolder")}
             </p>
             <BrandCatalogFolders folders={folders} onOpen={setOpenCatalogId} />
@@ -137,34 +137,34 @@ export function ProductsPageClient({
         ) : (
           <>
             {openCatalog && (
-              <div className="mb-6 flex flex-wrap items-center gap-3">
+              <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-ink pb-6">
                 <button
                   type="button"
                   onClick={() => {
                     setOpenCatalogId(null);
                     setFilter("");
                   }}
-                  className="font-mono-data text-[10px] uppercase tracking-wider text-brass hover:underline"
+                  className="nav-underline text-[13px] text-muted hover:text-ink"
                 >
                   {t("allBrandFolders")}
                 </button>
-                <span className="text-divider">·</span>
+                <span className="text-muted">·</span>
                 <div className="flex items-center gap-2">
                   <BrandLogo brandName={openCatalog.companyName} className="h-6 w-auto" />
-                  <span className="font-display text-lg text-charcoal">
+                  <span className="font-display text-xl tracking-tight">
                     {openCatalog.companyName}
                   </span>
                 </div>
               </div>
             )}
 
-            <div className="relative mb-8 max-w-md">
+            <div className="relative mb-10 max-w-md">
               <input
                 type="search"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder={t("productsFilter")}
-                className="w-full rounded-sm border border-divider bg-marble py-3 pl-9 pr-9 font-mono-data text-sm placeholder:text-muted/50"
+                className="w-full border border-ink bg-paper py-3.5 pl-9 pr-9 text-[14px] placeholder:text-muted/50 focus:outline-none"
                 aria-label={t("productsFilter")}
               />
               <svg
@@ -176,13 +176,18 @@ export function ProductsPageClient({
                 aria-hidden
               >
                 <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1" />
-                <path d="M8 8l2.5 2.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                <path
+                  d="M8 8l2.5 2.5"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                />
               </svg>
               {filter && (
                 <button
                   type="button"
                   onClick={() => setFilter("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/50 hover:text-muted"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/50 hover:text-ink"
                   aria-label={t("clearFilter")}
                 >
                   ×
@@ -191,19 +196,13 @@ export function ProductsPageClient({
             </div>
 
             {items.length === 0 ? (
-              <p className="border border-divider bg-marble p-10 text-center text-muted">
+              <p className="border border-ink/15 p-10 text-center text-muted">
                 {filter.trim() ? t("productsNoMatch") : t("emptyProducts")}
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
                 {items.map((item, i) => (
-                  <motion.div
-                    key={item.key}
-                    initial={{ opacity: 0, y: 18 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-20px" }}
-                    transition={{ delay: (i % 8) * 0.04, duration: 0.4, ease }}
-                  >
+                  <Reveal key={item.key} delay={(i % 8) * 0.03}>
                     <ZrkCatalogCard
                       href={item.href}
                       imageSrc={item.imageSrc}
@@ -214,7 +213,7 @@ export function ProductsPageClient({
                       subtitle={item.subtitle}
                       meta={item.meta}
                     />
-                  </motion.div>
+                  </Reveal>
                 ))}
               </div>
             )}

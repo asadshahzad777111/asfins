@@ -18,17 +18,17 @@ export function FinishMarquee({ className = "" }: { className?: string }) {
 
   return (
     <div
-      className={`finish-marquee relative overflow-hidden border-y border-white/8 py-3 ${className}`}
+      className={`finish-marquee relative overflow-hidden border-y border-ink py-4 ${className}`}
       aria-hidden
     >
-      <div className="finish-marquee__track flex w-max gap-10">
+      <div className="finish-marquee__track flex w-max gap-12">
         {loop.map((code, i) => (
           <span
             key={`${code}-${i}`}
-            className="font-mono-data text-[11px] uppercase tracking-[0.35em] text-marble/35"
+            className="text-[12px] uppercase tracking-[0.28em] text-ink/40"
           >
             {code}
-            <span className="ml-10 text-brass/50">◆</span>
+            <span className="ml-12 text-ink/25">—</span>
           </span>
         ))}
       </div>

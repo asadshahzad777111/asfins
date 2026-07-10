@@ -37,7 +37,7 @@ export function BrandCatalogFolders({
           key={folder.id}
           type="button"
           onClick={() => onOpen(folder.id)}
-          className="group relative flex flex-col overflow-hidden rounded-sm border border-divider bg-marble text-left transition hover:border-brass/50 hover:shadow-[0_8px_24px_rgba(40,32,24,0.08)]"
+          className="group relative flex flex-col overflow-hidden border border-divider bg-paper text-left transition hover:border-ink hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)]"
         >
           <div className="relative aspect-[4/3] overflow-hidden bg-base">
             {folder.previewUrl ? (

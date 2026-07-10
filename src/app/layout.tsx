@@ -1,26 +1,21 @@
 import type { Metadata } from "next";
-import { Fraunces, Outfit, IBM_Plex_Mono } from "next/font/google";
+import { Syne, DM_Sans } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import { SiteChromeGate } from "@/components/SiteChromeGate";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const syne = Syne({
+  variable: "--font-syne",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
-  display: "swap",
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  variable: "--font-ibm-plex-mono",
   weight: ["400", "500"],
-  subsets: ["latin"],
   display: "swap",
 });
 
@@ -31,15 +26,18 @@ export const metadata: Metadata = {
     template: `%s · ${SITE.shortName}`,
   },
   description:
-    "Preview floor, walls, cabinets, ceiling & finishes on real room photos — then request a quote from partnered dealers.",
+    "ASFins colour studio — preview wood & laminate on real kitchen photos in Lahore. Patex, ZRK and partner catalogs, then request a dealer quote.",
   keywords: [
     "interior design",
     "laminate",
-    "flooring",
-    "room visualizer",
+    "kitchen visualizer",
+    "wood colour",
+    "Lahore",
     "Pakistan",
     "ASFins",
     "Aspire Interiors",
+    "Patex",
+    "ZRK",
   ],
   openGraph: {
     siteName: SITE.legalName,
@@ -57,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${outfit.variable} ${ibmPlexMono.variable} h-full`}
+      className={`${syne.variable} ${dmSans.variable} h-full`}
     >
       <body className="flex min-h-full flex-col antialiased">
         <Providers>

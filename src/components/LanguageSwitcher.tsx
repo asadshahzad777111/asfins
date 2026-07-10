@@ -13,10 +13,8 @@ export function LanguageSwitcher({ variant = "light" }: LanguageSwitcherProps) {
 
   return (
     <div
-      className={`flex p-0.5 ${
-        dark
-          ? "border border-white/15 bg-white/5"
-          : "border border-divider bg-base"
+      className={`flex ${
+        dark ? "border border-current/30" : "border border-ink/20"
       }`}
       role="group"
       aria-label="Language"
@@ -26,14 +24,14 @@ export function LanguageSwitcher({ variant = "light" }: LanguageSwitcherProps) {
           key={code}
           type="button"
           onClick={() => setLang(code)}
-          className={`px-2.5 py-1 font-mono-data text-[10px] uppercase tracking-wider transition-colors ${
+          className={`px-2.5 py-1 text-[11px] uppercase tracking-wider transition-colors ${
             lang === code
               ? dark
-                ? "bg-brass text-ink"
-                : "bg-brass text-marble"
+                ? "bg-paper text-ink"
+                : "bg-ink text-paper"
               : dark
-                ? "text-marble/50 hover:text-marble"
-                : "text-muted hover:text-charcoal"
+                ? "text-current/55 hover:text-current"
+                : "text-muted hover:text-ink"
           }`}
           aria-pressed={lang === code}
         >
