@@ -43,15 +43,15 @@ function maskIsInside(
  * Physical laminate sheet: 8 ft × 4 ft (2440×1220 mm) → aspect 2:1.
  * Scenes have no metric scale. Assume the photo's vertical axis is a typical
  * floor-to-ceiling height (~11 ft), derive pixels-per-foot, then size one tile
- * as one physical sheet × 0.66 (~34% smaller) so grain reads finer across a run.
+ * as one physical sheet × 0.79 (~21% smaller) so grain reads finer across a run.
  */
 const ROOM_HEIGHT_FT = 11;
 const SHEET_LONG_FT = 8;
 const SHEET_SHORT_FT = 4;
-/** Scale sheets down ~34% vs full ppf; keep mid-size clamps (8 ft ≈ 115–307 px). */
+/** Scale sheets down ~21% vs full ppf; keep mid-size clamps (8 ft ≈ 115–307 px). */
 const MIN_PPF = 24;
 const MAX_PPF = 64;
-const TILE_SCALE = 0.66;
+const TILE_SCALE = 0.79;
 
 /** Integer tile size — fractional drawImage destinations create seam lines. */
 export function computeTextureTileSize(
