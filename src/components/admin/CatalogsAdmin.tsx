@@ -247,7 +247,7 @@ export function CatalogsAdmin({ initialCatalogs }: CatalogsAdminProps) {
                           e.target.value = "";
                           if (!file) return;
                           const folder =
-                            (editingId ?? companyName || "custom")
+                            ((editingId ?? companyName) || "custom")
                               .toLowerCase()
                               .replace(/[^a-z0-9-_]+/g, "-")
                               .replace(/^-|-$/g, "") || "custom";

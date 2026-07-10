@@ -142,6 +142,7 @@ export const translations = {
 
     // Multi-colour cabinet board
     multiColourButton: "Multi colour",
+    multiColourAdvancedButton: "Advanced: free-form board",
     multiColourTitle: "Cabinet multi colour",
     multiColourHint: "Drag laminate swatches onto the board. Resize and stack — only cabinets change.",
     multiColourDone: "Done — back to kitchen",
@@ -152,6 +153,16 @@ export const translations = {
     multiColourDragSwatch: "Tap or drag a swatch onto the board",
     uploadTexture: "Upload file",
     uploadTextureOk: "Texture uploaded — local path set.",
+
+    // Line-split multi-colour (default mode)
+    splitTitle: "Multi colour",
+    splitStart: "Split into 2 colours",
+    splitClear: "Clear split",
+    splitSegment: "Colour",
+    splitAddColour: "Add colour",
+    splitRemoveColour: "Remove colour",
+    splitPickingFor: "Picking a colour for segment {n} — drag the line to resize.",
+    splitHint: "Tap a colour swatch below to set it, or drag the line to resize segments.",
     uploadTextureFail: "Texture upload failed.",
 
     // Color catalog
@@ -379,7 +390,10 @@ export const translations = {
     wizardRegionsFound: "{count} regions found",
     wizardRegionsMapped: "{mapped} of {total} mapped",
     wizardClickToMark: "Click regions to assign",
-    wizardRegionLegend: "Region colours",
+    wizardZoomHint: "Scroll, pinch, or use +/− to zoom in — tap a region to tag it precisely.",
+    wizardResetZoom: "Reset zoom",
+    wizardWhatIsThis: "What is this?",
+    wizardRegionLegend: "Each transparent region — choose a label",
     wizardUnassigned: "unassigned",
     wizardUnmapped: "{count} unmapped",
     wizardUnmappedWarning: "{count} regions still unmapped",
@@ -402,7 +416,6 @@ export const translations = {
     wizardZoneChecklistDesc:
       "What did you cut in this kitchen? Tick first — only checked zones appear in mapping (floor, walls, upper/lower cabinets, island…).",
     wizardZoneChecklist: "Cut-out checklist — ask this first",
-    wizardRegionLegend: "Each transparent region — choose a label",
     wizardRegionAssign: "Assign region",
     wizardTouchingRegionsHint:
       "If two cabinets look like one blob, leave a 1–2 px opaque gap in Photopea so flood-fill treats them as separate regions.",
@@ -598,6 +611,7 @@ export const translations = {
     doubleShadeTeakSage: "Teak + Sage",
 
     multiColourButton: "Multi colour",
+    multiColourAdvancedButton: "Advanced: free-form board",
     multiColourTitle: "Cabinet multi colour",
     multiColourHint:
       "Laminate swatches board pe drag karein. Size aur order change — sirf cabinets.",
@@ -610,6 +624,16 @@ export const translations = {
     uploadTexture: "File upload",
     uploadTextureOk: "Texture upload ho gayi — local path set.",
     uploadTextureFail: "Texture upload fail.",
+
+    // Line-split multi-colour (default mode)
+    splitTitle: "Multi colour",
+    splitStart: "2 colours mein split karein",
+    splitClear: "Split clear karein",
+    splitSegment: "Colour",
+    splitAddColour: "Colour add karein",
+    splitRemoveColour: "Colour hatayein",
+    splitPickingFor: "Segment {n} ke liye colour choose karein — line drag karke resize karein.",
+    splitHint: "Neeche colour swatch tap karein, ya line drag karke segments resize karein.",
 
     chooseWoodColour: "Apna wood colour choose karein",
     choosePaintColour: "Paint colour choose karein",
@@ -826,7 +850,10 @@ export const translations = {
     wizardRegionsFound: "{count} regions mile",
     wizardRegionsMapped: "{mapped} of {total} mapped",
     wizardClickToMark: "Regions par click karein assign karne ke liye",
-    wizardRegionLegend: "Region colours",
+    wizardZoomHint: "Scroll, pinch, ya +/− se zoom karein — region tap karke precisely tag karein.",
+    wizardResetZoom: "Zoom reset",
+    wizardWhatIsThis: "Yeh kya hai?",
+    wizardRegionLegend: "Har transparent region — label choose karein",
     wizardUnassigned: "unassigned",
     wizardUnmapped: "{count} unmapped",
     wizardUnmappedWarning: "{count} regions abhi unmapped hain",
@@ -849,7 +876,6 @@ export const translations = {
     wizardZoneChecklistDesc:
       "Is kitchen mein kya cut hai? Pehle checklist tick karein — sirf ye zones mapping mein aayenge (floor, walls, upper/lower cabinets, island…).",
     wizardZoneChecklist: "Cut-out checklist — pehle ye poochho",
-    wizardRegionLegend: "Har transparent region — label choose karein",
     wizardRegionAssign: "Region assign",
     wizardTouchingRegionsHint:
       "Agar do cabinets ek blob dikhein to Photopea mein unke darmiyan 1–2 px opaque gap rakhein, warna flood-fill unhe ek region manta hai.",

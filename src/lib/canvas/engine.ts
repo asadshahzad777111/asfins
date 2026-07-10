@@ -15,6 +15,13 @@ import {
   paintColourBoard,
   type ColourBlock,
 } from "@/lib/canvas/colour-board";
+import {
+  isActiveSplit,
+  paintZoneSplit,
+  type ZoneBoundingBox,
+  type ZoneSplits,
+  type ZoneSplitState,
+} from "@/lib/canvas/colour-split";
 
 export type FinishMode = "matt" | "glossy";
 export type LightingMode = "day" | "night";
@@ -23,14 +30,17 @@ export type ZoneColors = Record<string, string>;
 export type ZoneTextures = Record<string, string | undefined>;
 
 export type { ColourBlock };
+export type { ZoneBoundingBox, ZoneSplits, ZoneSplitState };
 
 export interface RenderState {
   zoneColors: ZoneColors;
   zoneTextures: ZoneTextures;
   finish: FinishMode;
   lighting: LightingMode;
-  /** Multi-colour back board for cabinets only; empty = use per-zone colours. */
+  /** Multi-colour back board for cabinets only; empty = use per-zone colours. Advanced/free-form mode. */
   cabinetColourBoard: ColourBlock[];
+  /** Per-zone line-split multi-colour state (default/simple mode). Zones without an active split use zoneColors. */
+  zoneSplits: ZoneSplits;
 }
 
 export type PartialZoneColors = Partial<ZoneColors>;
@@ -41,6 +51,7 @@ export type ConfiguratorUpdate = {
   finish?: FinishMode;
   lighting?: LightingMode;
   cabinetColourBoard?: ColourBlock[];
+  zoneSplits?: Partial<ZoneSplits>;
 };
 
 export interface LoadedAssets {
@@ -305,7 +316,14 @@ export class SceneRenderer {
   private assets: LoadedAssets | null = null;
   private zoneCache = new Map<string, HTMLCanvasElement>();
   private textureCache = new Map<string, HTMLImageElement>();
+  /** Zone pixel bounding box — static per scene, computed once and cached. */
+  private zoneBoxCache = new Map<string, ZoneBoundingBox>();
+  /** Binary alpha clip mask per zone — static per scene; avoids re-binarizing on every
+   *  split-divider drag frame (that per-pixel scan would otherwise run every frame). */
+  private zoneClipCache = new Map<string, HTMLCanvasElement>();
   private renderScheduled = false;
+  /** Guards against out-of-order async completion overwriting a newer render with a stale one. */
+  private renderGeneration = 0;
   private mainCanvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private state: RenderState;
@@ -338,6 +356,7 @@ export class SceneRenderer {
       zoneColors: { ...this.state.zoneColors },
       zoneTextures: { ...this.state.zoneTextures },
       cabinetColourBoard: [...this.state.cabinetColourBoard],
+      zoneSplits: { ...this.state.zoneSplits },
     };
     const mergedZoneColors = partial.zoneColors
       ? { ...this.state.zoneColors }
@@ -355,11 +374,21 @@ export class SceneRenderer {
         mergedZoneTextures[key] = val;
       }
     }
+    const mergedZoneSplits = partial.zoneSplits
+      ? { ...this.state.zoneSplits }
+      : this.state.zoneSplits;
+    if (partial.zoneSplits) {
+      for (const [key, val] of Object.entries(partial.zoneSplits)) {
+        if (val === undefined) delete mergedZoneSplits[key];
+        else mergedZoneSplits[key] = val;
+      }
+    }
     this.state = {
       ...this.state,
       ...partial,
       zoneColors: mergedZoneColors,
       zoneTextures: mergedZoneTextures,
+      zoneSplits: mergedZoneSplits,
       cabinetColourBoard:
         partial.cabinetColourBoard !== undefined
           ? partial.cabinetColourBoard
@@ -368,6 +397,11 @@ export class SceneRenderer {
 
     if (partial.cabinetColourBoard !== undefined) {
       this.zoneCache.clear();
+      this.scheduleRender();
+      return;
+    }
+
+    if (partial.zoneSplits !== undefined) {
       this.scheduleRender();
       return;
     }
@@ -398,6 +432,67 @@ export class SceneRenderer {
     const img = await loadImage(url);
     this.textureCache.set(url, img);
     return img;
+  }
+
+  /** Pixel bounding box of a zone's mask, in scene pixel space. Used to position split dividers. */
+  getZoneBoundingBox(zoneId: string): ZoneBoundingBox | null {
+    if (!this.assets) return null;
+    const cached = this.zoneBoxCache.get(zoneId);
+    if (cached) return cached;
+
+    const mask = this.assets.masks[zoneId];
+    if (!mask) return null;
+    const { width, height } = this.scene;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(mask, 0, 0, width, height);
+    const px = ctx.getImageData(0, 0, width, height);
+    const { mode, polarity } = detectMaskModeAndPolarity(px.data);
+
+    let minX = width;
+    let minY = height;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < height; y++) {
+      const rowBase = y * width;
+      for (let x = 0; x < width; x++) {
+        const i = (rowBase + x) * 4;
+        if (
+          maskIsInside(px.data[i], px.data[i + 1], px.data[i + 2], px.data[i + 3], mode, polarity)
+        ) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    const box: ZoneBoundingBox =
+      maxX < 0
+        ? { x: 0, y: 0, w: width, h: height }
+        : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    this.zoneBoxCache.set(zoneId, box);
+    return box;
+  }
+
+  private getZoneClipMask(zoneId: string): HTMLCanvasElement | null {
+    if (!this.assets) return null;
+    const cached = this.zoneClipCache.get(zoneId);
+    if (cached) return cached;
+
+    const mask = this.assets.masks[zoneId];
+    if (!mask) return null;
+    const { width, height } = this.scene;
+    const union = buildCabinetUnionMask(this.assets.masks, [zoneId], width, height);
+    // buildCabinetUnionMask is generic (any zone ids) — reuse it to get a clean
+    // binary-ish canvas, then bake it once via the same binarizing step used for
+    // the free-form board so per-frame clipping is a cheap drawImage, not a scan.
+    const clip = clipBoardToCabinetMask(union, union, width, height);
+    this.zoneClipCache.set(zoneId, clip);
+    return clip;
   }
 
   private scheduleRender(): void {
@@ -476,8 +571,38 @@ export class SceneRenderer {
     return colored;
   }
 
+  /** Line-split multi-colour zone render — segments intersected with this zone's own mask only. */
+  private async getZoneSplitCanvas(
+    zoneId: string,
+    split: ZoneSplitState
+  ): Promise<HTMLCanvasElement | null> {
+    if (!this.assets) return null;
+    const box = this.getZoneBoundingBox(zoneId);
+    const clip = this.getZoneClipMask(zoneId);
+    if (!box || !clip) return null;
+    const { width, height } = this.scene;
+
+    const painted = await paintZoneSplit(split, box, width, height, (url) =>
+      this.preloadTexture(url)
+    );
+    const pctx = painted.getContext("2d")!;
+    pctx.globalCompositeOperation = "destination-in";
+    pctx.drawImage(clip, 0, 0);
+    pctx.globalCompositeOperation = "source-over";
+
+    if (this.assets.cutoutHoleData) {
+      clipLayerToCutoutHoles(painted, this.assets.cutoutHoleData, width, height);
+    }
+    return painted;
+  }
+
   async fullRenderAsync(): Promise<void> {
     if (!this.assets) return;
+    // Snapshot a generation token: if a newer render starts (and finishes) while
+    // this one is still awaiting texture loads, this stale render must not paint
+    // over the newer result — otherwise the canvas can visibly "revert" to an
+    // older colour (or the plain base photo) after the user already applied a change.
+    const gen = ++this.renderGeneration;
     const { width, height } = this.scene;
     const sorted = [...this.scene.zones].sort((a, b) => a.zIndex - b.zIndex);
     const cabinetZones = getCabinetMultiColourZones(this.scene.zones);
@@ -493,6 +618,14 @@ export class SceneRenderer {
       // When multi-colour board is active, skip per-zone cabinet fills —
       // the board composite replaces them.
       if (useBoard && cabinetIds.has(zone.id)) continue;
+
+      const split = this.state.zoneSplits[zone.id];
+      if (isActiveSplit(split)) {
+        const layer = await this.getZoneSplitCanvas(zone.id, split!);
+        if (layer) colorCtx.drawImage(layer, 0, 0);
+        continue;
+      }
+
       const layer = await this.getZoneCanvas(zone.id);
       if (layer) colorCtx.drawImage(layer, 0, 0);
     }
@@ -510,7 +643,7 @@ export class SceneRenderer {
         width,
         height
       );
-      let clipped = clipBoardToCabinetMask(board, union, width, height);
+      const clipped = clipBoardToCabinetMask(board, union, width, height);
       if (this.assets.cutoutHoleData) {
         clipLayerToCutoutHoles(
           clipped,
@@ -521,6 +654,10 @@ export class SceneRenderer {
       }
       colorCtx.drawImage(clipped, 0, 0);
     }
+
+    // Abort if a newer render has since started — never paint stale content
+    // over a more recent (correct) frame.
+    if (gen !== this.renderGeneration) return;
 
     this.ctx.clearRect(0, 0, width, height);
 

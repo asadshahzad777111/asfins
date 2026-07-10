@@ -11,6 +11,8 @@ import {
   type ZoneColors,
   type ZoneTextures,
   type ColourBlock,
+  type ZoneBoundingBox,
+  type ZoneSplitState,
 } from "@/lib/canvas/engine";
 import type { SceneConfig } from "@/lib/scenes/types";
 import type { CatalogSwatch } from "@/lib/catalogs/types";
@@ -34,6 +36,7 @@ export function useConfigurator(
     finish: "matt",
     lighting: "day",
     cabinetColourBoard: [],
+    zoneSplits: {},
   }));
 
   useEffect(() => {
@@ -51,6 +54,7 @@ export function useConfigurator(
       finish: "matt",
       lighting: "day",
       cabinetColourBoard: [],
+      zoneSplits: {},
     };
     setState(initialState);
 
@@ -90,11 +94,19 @@ export function useConfigurator(
           mergedTextures[key] = val;
         }
       }
+      const mergedSplits = { ...prev.zoneSplits };
+      if (partial.zoneSplits) {
+        for (const [key, val] of Object.entries(partial.zoneSplits)) {
+          if (val === undefined) delete mergedSplits[key];
+          else mergedSplits[key] = val;
+        }
+      }
       const next: RenderState = {
         finish: partial.finish ?? prev.finish,
         lighting: partial.lighting ?? prev.lighting,
         zoneColors: mergedColors,
         zoneTextures: mergedTextures,
+        zoneSplits: mergedSplits,
         cabinetColourBoard:
           partial.cabinetColourBoard !== undefined
             ? partial.cabinetColourBoard
@@ -155,6 +167,19 @@ export function useConfigurator(
     [update]
   );
 
+  /** Live-drag friendly — no `applying` overlay flash, intentionally synchronous per call. */
+  const setZoneSplit = useCallback(
+    (zone: string, split: ZoneSplitState | undefined) => {
+      update({ zoneSplits: { [zone]: split } });
+    },
+    [update]
+  );
+
+  const getZoneBoundingBox = useCallback(
+    (zone: string): ZoneBoundingBox | null => rendererRef.current?.getZoneBoundingBox(zone) ?? null,
+    []
+  );
+
   const setFinish = useCallback(
     (finish: FinishMode) => update({ finish }),
     [update]
@@ -172,11 +197,16 @@ export function useConfigurator(
   const resetColors = useCallback(() => {
     const defaults = defaultZoneColors(scene.zones);
     const clearedTextures: ZoneTextures = {};
-    for (const z of scene.zones) clearedTextures[z.id] = undefined;
+    const clearedSplits: Record<string, undefined> = {};
+    for (const z of scene.zones) {
+      clearedTextures[z.id] = undefined;
+      clearedSplits[z.id] = undefined;
+    }
     update({
       zoneColors: defaults,
       zoneTextures: clearedTextures,
       cabinetColourBoard: [],
+      zoneSplits: clearedSplits,
     });
   }, [scene.zones, update]);
 
@@ -190,6 +220,8 @@ export function useConfigurator(
     setZoneFromSwatch,
     setZoneColors,
     setCabinetColourBoard,
+    setZoneSplit,
+    getZoneBoundingBox,
     setFinish,
     setLighting,
     exportPng,
