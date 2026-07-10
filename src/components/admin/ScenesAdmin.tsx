@@ -16,7 +16,8 @@ export function ScenesAdmin({ initialScenes, catalogs }: ScenesAdminProps) {
   const router = useRouter();
   const { t } = useLanguage();
   const [scenes, setScenes] = useState(initialScenes);
-  const [showWizard, setShowWizard] = useState(false);
+  /** null = wizard hidden, "new" = creating, or the scene being edited. */
+  const [wizardTarget, setWizardTarget] = useState<"new" | SceneRecord | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   function paletteLabel(palette: ZonePalette) {
@@ -48,19 +49,21 @@ export function ScenesAdmin({ initialScenes, catalogs }: ScenesAdminProps) {
         </div>
       )}
 
-      {!showWizard ? (
+      {wizardTarget === null ? (
         <div className="wp-toolbar" style={{ marginBottom: "1rem" }}>
           <div className="wp-toolbar-left">
-            <button type="button" className="wp-button" onClick={() => setShowWizard(true)}>
+            <button type="button" className="wp-button" onClick={() => setWizardTarget("new")}>
               {t("wizardNewScene")}
             </button>
           </div>
         </div>
       ) : (
         <SceneSetupWizard
+          key={wizardTarget === "new" ? "new" : wizardTarget.id}
           catalogs={catalogs}
+          existingScene={wizardTarget === "new" ? undefined : wizardTarget}
           onComplete={async () => {
-            setShowWizard(false);
+            setWizardTarget(null);
             const res = await fetch("/api/admin/scenes");
             if (res.ok) {
               const data = await res.json();
@@ -68,7 +71,7 @@ export function ScenesAdmin({ initialScenes, catalogs }: ScenesAdminProps) {
             }
             router.refresh();
           }}
-          onCancel={() => setShowWizard(false)}
+          onCancel={() => setWizardTarget(null)}
         />
       )}
 
@@ -115,6 +118,10 @@ export function ScenesAdmin({ initialScenes, catalogs }: ScenesAdminProps) {
                           <a href={`/configurator/${s.id}`} target="_blank" rel="noreferrer">
                             {t("preview")}
                           </a>
+                          <span>|</span>
+                          <button type="button" onClick={() => setWizardTarget(s)}>
+                            {t("edit")}
+                          </button>
                           <span>|</span>
                           <button type="button" onClick={() => void handleDelete(s.id)}>
                             {t("delete")}

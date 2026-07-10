@@ -60,18 +60,32 @@ export function getZoneQuestionById(
   return getZoneQuestions(category).find((q) => q.id === zoneId);
 }
 
-export type WizardStep = "info" | "cutout" | "zones" | "mapping" | "review";
+/** Zone questions that map 1:1 to a single upload slot (not repeatable) — everything except wood/cabinet zones. */
+export function getSingleInstanceZoneQuestions(category: RoomCategory): ZoneQuestion[] {
+  return getZoneQuestions(category).filter((q) => q.zoneGroup !== "wood");
+}
+
+export type WizardStep = "info" | "cutout" | "zones" | "mapping" | "simpleZones" | "review";
+
+export type WizardFlow = "simple" | "advanced";
 
 export function wizardProgress(
   step: WizardStep,
   questionIndex: number,
-  totalQuestions: number
+  totalQuestions: number,
+  flow: WizardFlow = "advanced"
 ): { current: number; total: number } {
+  if (flow === "simple") {
+    const simpleOffsets: Record<string, number> = { info: 1, simpleZones: 2, review: 3 };
+    return { current: simpleOffsets[step] ?? 1, total: 3 };
+  }
+
   const stepOffsets: Record<WizardStep, number> = {
     info: 1,
     cutout: 2,
     zones: 3,
     mapping: 4,
+    simpleZones: 2,
     review: 4 + totalQuestions,
   };
   const current =

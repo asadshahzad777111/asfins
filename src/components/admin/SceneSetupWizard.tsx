@@ -7,12 +7,22 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { roomLabel } from "@/lib/i18n/translations";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import type { Catalog } from "@/lib/catalogs/types";
-import type { ZonePalette } from "@/lib/scenes/types";
+import type { RoomCategory, SceneRecord, ZonePalette } from "@/lib/scenes/types";
 import {
   getZoneQuestions,
   wizardProgress,
+  type WizardFlow,
   type WizardStep,
 } from "@/lib/scenes/zone-wizard";
+import {
+  anyZoneConfigured,
+  buildInitialSimpleZoneRows,
+  buildSimpleZoneSubmissions,
+  collectRemovedZoneIds,
+  isRowConfigured,
+  newCabinetRow,
+  type SimpleZoneRow,
+} from "@/lib/scenes/simple-upload";
 import {
   getUnmappedRegionIds,
   loadImageDataFromFile,
@@ -25,15 +35,39 @@ import {
   type ImageSourceValue,
 } from "@/components/admin/ImageSourceInput";
 import { CutoutZoneMapper } from "@/components/admin/CutoutZoneMapper";
+import { ZoneCutoutSlot } from "@/components/admin/ZoneCutoutSlot";
 
 interface SceneSetupWizardProps {
   catalogs: Catalog[];
   onComplete: () => void;
   onCancel: () => void;
+  /** When set, the wizard edits this existing scene in place instead of creating a new one. */
+  existingScene?: SceneRecord;
 }
 
+/** An existing preview (already-saved photo/cutout) counts as "has an image" too —
+ *  editing a scene shouldn't force a re-upload of files that aren't being replaced. */
 function hasImageSource(source: ImageSourceValue): boolean {
-  return Boolean(source.file || source.url);
+  return Boolean(source.file || source.url || source.preview);
+}
+
+function defaultZonesForCategory(category: string): Set<string> {
+  const qs = getZoneQuestions(category as "kitchen");
+  const defaults = new Set(
+    qs.filter((q) => !q.optional && q.zoneGroup === "wood").map((q) => q.id)
+  );
+  if (category === "kitchen") {
+    [
+      "upper-cabinet-left",
+      "upper-cabinet-mid",
+      "upper-cabinet-right",
+      "lower-cabinet-left",
+      "lower-cabinet-mid",
+      "lower-cabinet-right",
+      "island",
+    ].forEach((id) => defaults.add(id));
+  }
+  return defaults;
 }
 
 function appendImageSource(form: FormData, key: string, source: ImageSourceValue) {
@@ -44,22 +78,60 @@ function appendImageSource(form: FormData, key: string, source: ImageSourceValue
   }
 }
 
-export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupWizardProps) {
+function defaultFlowForScene(existing?: SceneRecord): WizardFlow {
+  // Existing region-mapped scenes open in advanced so admins can keep tagging.
+  // Everything else (new scenes + layer-based scenes) uses the simple per-zone uploads.
+  if (existing?.regionMappings) return "advanced";
+  return "simple";
+}
+
+export function SceneSetupWizard({
+  catalogs,
+  onComplete,
+  onCancel,
+  existingScene,
+}: SceneSetupWizardProps) {
   const router = useRouter();
   const { lang, t } = useLanguage();
+  const isEditing = Boolean(existingScene);
 
+  const [flow, setFlow] = useState<WizardFlow>(() => defaultFlowForScene(existingScene));
   const [step, setStep] = useState<WizardStep>("info");
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [category, setCategory] = useState("kitchen");
-  const [basePhoto, setBasePhoto] = useState<ImageSourceValue>(emptyImageSource());
-  const [cutout, setCutout] = useState<ImageSourceValue>(emptyImageSource());
+  const [name, setName] = useState(existingScene?.name ?? "");
+  const [description, setDescription] = useState(existingScene?.description ?? "");
+  const [category, setCategory] = useState<RoomCategory>(existingScene?.category ?? "kitchen");
+  const [basePhoto, setBasePhoto] = useState<ImageSourceValue>(() =>
+    existingScene
+      ? { file: null, url: "", preview: existingScene.basePhoto, mode: "upload" }
+      : emptyImageSource()
+  );
+  const [cutout, setCutout] = useState<ImageSourceValue>(() =>
+    existingScene?.regionMappings
+      ? {
+          file: null,
+          url: "",
+          preview: `/scenes/${existingScene.id}/master-cutout.png`,
+          mode: "upload",
+        }
+      : emptyImageSource()
+  );
   const [parsed, setParsed] = useState<ParsedCutout | null>(null);
   const [assignments, setAssignments] = useState<Record<string, number[]>>({});
+  const [assignmentsHydrated, setAssignmentsHydrated] = useState(false);
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
-  const [enabledZones, setEnabledZones] = useState<Set<string>>(() => new Set());
-  const [selectedCatalogs, setSelectedCatalogs] = useState<string[]>(catalogs.map((c) => c.id));
+  const [enabledZones, setEnabledZones] = useState<Set<string>>(() =>
+    existingScene ? new Set(existingScene.zones.map((z) => z.id)) : defaultZonesForCategory(category)
+  );
+  const [simpleRows, setSimpleRows] = useState<SimpleZoneRow[]>(() =>
+    buildInitialSimpleZoneRows(
+      (existingScene?.category ?? "kitchen") as RoomCategory,
+      existingScene
+    )
+  );
+  const [selectedCatalogs, setSelectedCatalogs] = useState<string[]>(
+    () => existingScene?.catalogIds ?? catalogs.map((c) => c.id)
+  );
   const [loading, setLoading] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err" | "warn"; text: string } | null>(null);
@@ -67,27 +139,29 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
 
   const questions = useMemo(() => getZoneQuestions(category as "kitchen"), [category]);
 
-  useEffect(() => {
-    const qs = getZoneQuestions(category as "kitchen");
-    const defaults = new Set(
-      qs.filter((q) => !q.optional && q.zoneGroup === "wood").map((q) => q.id)
-    );
-    if (category === "kitchen") {
-      [
-        "upper-cabinet-left",
-        "upper-cabinet-mid",
-        "upper-cabinet-right",
-        "lower-cabinet-left",
-        "lower-cabinet-mid",
-        "lower-cabinet-right",
-        "island",
-      ].forEach((id) => defaults.add(id));
-    }
-    setEnabledZones(defaults);
+  // Reset zone selections/mapping when the category actually changes — React's
+  // documented "adjust state when a prop changes" pattern (state tracker, not a
+  // ref). Doesn't fire on mount, so an edit session's pre-populated zones/
+  // assignments (hydrated above from the existing scene) aren't clobbered.
+  const [prevCategory, setPrevCategory] = useState(category);
+  if (prevCategory !== category) {
+    setPrevCategory(category);
+    setEnabledZones(defaultZonesForCategory(category));
     setSkipped(new Set());
     setAssignments({});
+    setAssignmentsHydrated(true);
     setQuestionIndex(0);
-  }, [category]);
+    setSimpleRows(buildInitialSimpleZoneRows(category as RoomCategory, undefined));
+  }
+
+  // Once the existing cutout has been re-parsed into regions, restore the
+  // scene's saved region→zone assignments (parseCutout itself clears
+  // `assignments` as part of a fresh parse). Adjust during render — React's
+  // documented pattern — so we don't trip react-hooks/set-state-in-effect.
+  if (parsed && !assignmentsHydrated && existingScene?.regionMappings) {
+    setAssignments(existingScene.regionMappings);
+    setAssignmentsHydrated(true);
+  }
 
   const activeQuestions = useMemo(
     () =>
@@ -98,7 +172,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
     [questions, enabledZones, skipped, editSkippedMode]
   );
   const currentQuestion = step === "mapping" ? activeQuestions[questionIndex] : null;
-  const progress = wizardProgress(step, questionIndex, questions.length);
+  const progress = wizardProgress(step, questionIndex, questions.length, flow);
 
   const regionToZone = useMemo(() => {
     const map: Record<number, string> = {};
@@ -107,6 +181,15 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
     }
     return map;
   }, [assignments]);
+
+  const singleRows = useMemo(
+    () => simpleRows.filter((r) => r.kind === "single"),
+    [simpleRows]
+  );
+  const cabinetRows = useMemo(
+    () => simpleRows.filter((r) => r.kind === "cabinet"),
+    [simpleRows]
+  );
 
   const parseCutout = useCallback(async (source: ImageSourceValue) => {
     if (!source.file && !source.preview) return;
@@ -159,15 +242,34 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
   }, [t]);
 
   useEffect(() => {
+    if (flow !== "advanced") return;
     if (cutout.file || cutout.preview) {
+      // External image decode → parse regions; setState happens in the async
+      // callback path inside parseCutout (and its sync "parsing" flag).
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- image load side-effect
       void parseCutout(cutout);
     }
-  }, [cutout, parseCutout]);
+  }, [cutout, parseCutout, flow]);
+
+  function switchFlow(next: WizardFlow) {
+    setFlow(next);
+    setStep("info");
+    setMessage(null);
+    if (next === "simple") {
+      setSimpleRows(
+        buildInitialSimpleZoneRows(category as RoomCategory, existingScene)
+      );
+    }
+  }
 
   function goToMapping() {
     setStep("mapping");
     setQuestionIndex(0);
     setEditSkippedMode(false);
+  }
+
+  function updateSimpleRow(key: string, patch: Partial<SimpleZoneRow>) {
+    setSimpleRows((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
   function handleAssignRegionToZone(regionId: number, zoneId: string) {
@@ -243,6 +345,18 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
   }
 
   function handleBack() {
+    if (flow === "simple") {
+      if (step === "review") {
+        setStep("simpleZones");
+        return;
+      }
+      if (step === "simpleZones") {
+        setStep("info");
+        return;
+      }
+      return;
+    }
+
     if (step === "review") {
       setStep("mapping");
       setQuestionIndex(Math.max(0, activeQuestions.length - 1));
@@ -275,7 +389,54 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
     }
   }
 
-  async function handleSave(force = false) {
+  async function handleSaveSimple() {
+    const submissions = buildSimpleZoneSubmissions(simpleRows, t);
+    if (submissions.length === 0) {
+      setMessage({ type: "err", text: t("wizardNoZonesMapped") });
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    const form = new FormData();
+    form.append("wizardMode", "simple");
+    form.append("name", name);
+    form.append("description", description);
+    form.append("category", category);
+    if (existingScene) form.append("id", existingScene.id);
+    appendImageSource(form, "basePhoto", basePhoto);
+    form.append("catalogIds", selectedCatalogs.join(","));
+    form.append("zoneCount", String(submissions.length));
+
+    const removed = collectRemovedZoneIds(simpleRows);
+    if (removed.length) form.append("removedZoneIds", removed.join(","));
+
+    submissions.forEach((sub, i) => {
+      if (sub.id) form.append(`zone_${i}_id`, sub.id);
+      form.append(`zone_${i}_label`, sub.label);
+      form.append(`zone_${i}_palette`, sub.palette);
+      if (sub.keepExisting) {
+        form.append(`zone_${i}_keepExisting`, "true");
+      } else {
+        appendImageSource(form, `zone_${i}_file`, sub.source);
+      }
+    });
+
+    const res = await fetch("/api/admin/scenes", { method: "POST", body: form });
+    const data = await res.json();
+
+    if (res.ok) {
+      setMessage({ type: "ok", text: t("saveSuccess", { name }) });
+      router.refresh();
+      onComplete();
+    } else {
+      setMessage({ type: "err", text: data.error ?? "Upload fail" });
+    }
+    setLoading(false);
+  }
+
+  async function handleSaveAdvanced(force = false) {
     if (!parsed) return;
 
     const unmapped = getUnmappedRegionIds(parsed.regions, assignments);
@@ -301,13 +462,14 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
     form.append("name", name);
     form.append("description", description);
     form.append("category", category);
+    if (existingScene) form.append("id", existingScene.id);
     appendImageSource(form, "basePhoto", basePhoto);
     appendImageSource(form, "masterCutout", cutout);
     form.append("catalogIds", selectedCatalogs.join(","));
     form.append("regionMappings", JSON.stringify(assignments));
     form.append("zoneCount", String(mappedZones.length));
 
-    mappedZones.forEach(([zoneId, _regionIds], i) => {
+    mappedZones.forEach(([zoneId], i) => {
       const q = questions.find((q) => q.id === zoneId);
       form.append(`zone_${i}_id`, zoneId);
       form.append(`zone_${i}_label`, q ? t(q.labelKey as TranslationKey) : zoneId);
@@ -333,10 +495,17 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
     return t("palettePaint");
   }
 
+  function rowDisplayLabel(row: SimpleZoneRow): string {
+    if (row.kind === "single" && row.labelKey) return t(row.labelKey);
+    return row.label || t("defaultZoneLabel");
+  }
+
   return (
     <div className="wp-postbox">
       <div className="wp-postbox-head wizard-postbox-head">
-        <span>{t("wizardTitle")}</span>
+        <span>
+          {isEditing ? t("wizardEditTitle", { name: existingScene!.name }) : t("wizardTitle")}
+        </span>
         <span className="wizard-progress">
           {t("wizardStepOf", { current: progress.current, total: progress.total })}
         </span>
@@ -355,9 +524,13 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
             style={{ marginBottom: "1rem" }}
           >
             {message.text}
-            {message.type === "warn" && (
+            {message.type === "warn" && flow === "advanced" && (
               <div className="wizard-warn-actions">
-                <button type="button" className="wp-button wp-button--small" onClick={() => void handleSave(true)}>
+                <button
+                  type="button"
+                  className="wp-button wp-button--small"
+                  onClick={() => void handleSaveAdvanced(true)}
+                >
                   {t("wizardSaveAnyway")}
                 </button>
                 <button
@@ -375,6 +548,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
         {step === "info" && (
           <div className="wizard-step space-y-4">
             <p className="wizard-step-desc">{t("wizardStep1Desc")}</p>
+            {isEditing && <p className="wizard-mapper-warn">{t("wizardEditReuseHint")}</p>}
             <div className="wizard-form-grid">
               <label className="form-group">
                 <span>{t("kitchenName")}</span>
@@ -387,7 +561,10 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
               </label>
               <label className="form-group">
                 <span>{t("roomCategory")}</span>
-                <select value={category} onChange={(e) => setCategory(e.target.value)}>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as RoomCategory)}
+                >
                   {ROOM_CATEGORIES.map((r) => (
                     <option key={r.id} value={r.id}>
                       {roomLabel(lang, r.id)}
@@ -408,12 +585,129 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
               onChange={setBasePhoto}
               required
             />
+            <p className="wizard-flow-toggle">
+              {flow === "simple" ? (
+                <>
+                  {t("wizardSimpleFlowActive")}{" "}
+                  <button
+                    type="button"
+                    className="wizard-flow-link"
+                    onClick={() => switchFlow("advanced")}
+                  >
+                    {t("wizardSwitchToAdvanced")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {t("wizardAdvancedFlowActive")}{" "}
+                  <button
+                    type="button"
+                    className="wizard-flow-link"
+                    onClick={() => switchFlow("simple")}
+                  >
+                    {t("wizardSwitchToSimple")}
+                  </button>
+                </>
+              )}
+            </p>
           </div>
         )}
 
-        {step === "cutout" && (
+        {flow === "simple" && step === "simpleZones" && (
+          <div className="wizard-step space-y-4">
+            <p className="wizard-step-desc">{t("wizardSimpleZonesDesc")}</p>
+            {isEditing && <p className="wizard-mapper-warn">{t("wizardEditReuseHint")}</p>}
+
+            <div className="wizard-simple-section">
+              <p className="wp-menu-heading" style={{ padding: 0, marginBottom: "0.75rem" }}>
+                {t("wizardSectionSurfaces")}
+              </p>
+              <div className="wizard-simple-slots">
+                {singleRows.map((row) => (
+                  <ZoneCutoutSlot
+                    key={row.key}
+                    label={rowDisplayLabel(row)}
+                    hint={t("wizardPerZoneCutoutHint")}
+                    value={row.source}
+                    optional={row.optional}
+                    existedBefore={row.existedBefore}
+                    removed={row.removed}
+                    onChange={(source) => updateSimpleRow(row.key, { source })}
+                    onRemove={
+                      row.existedBefore
+                        ? () =>
+                            updateSimpleRow(row.key, {
+                              removed: true,
+                              source: emptyImageSource(),
+                            })
+                        : undefined
+                    }
+                    onRestore={() => updateSimpleRow(row.key, { removed: false })}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="wizard-simple-section">
+              <p className="wp-menu-heading" style={{ padding: 0, marginBottom: "0.75rem" }}>
+                {t("wizardCabinetsSection")}
+              </p>
+              <p className="text-xs text-muted" style={{ marginBottom: "0.75rem" }}>
+                {t("wizardCabinetsSectionHint")}
+              </p>
+              <div className="wizard-simple-slots">
+                {cabinetRows.map((row) => (
+                  <ZoneCutoutSlot
+                    key={row.key}
+                    label={rowDisplayLabel(row)}
+                    hint={t("wizardPerZoneCutoutHint")}
+                    value={row.source}
+                    existedBefore={row.existedBefore}
+                    removed={row.removed}
+                    onChange={(source) => updateSimpleRow(row.key, { source })}
+                    onRemove={() => {
+                      if (row.existedBefore) {
+                        updateSimpleRow(row.key, { removed: true, source: emptyImageSource() });
+                      } else {
+                        setSimpleRows((rows) => rows.filter((r) => r.key !== row.key));
+                      }
+                    }}
+                    onRestore={() => updateSimpleRow(row.key, { removed: false })}
+                    headerExtra={
+                      <label className="form-group" style={{ flex: 1, margin: 0 }}>
+                        <span>{t("zoneNameLabel")}</span>
+                        <input
+                          value={row.label}
+                          onChange={(e) => updateSimpleRow(row.key, { label: e.target.value })}
+                          placeholder={t("wizardCabinetNamePlaceholder")}
+                        />
+                      </label>
+                    }
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                className="wp-button wp-button--secondary"
+                style={{ marginTop: "0.75rem" }}
+                onClick={() => setSimpleRows((rows) => [...rows, newCabinetRow()])}
+              >
+                {t("wizardAddCabinetCutout")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {flow === "advanced" && step === "cutout" && (
           <div className="wizard-step space-y-4">
             <p className="wizard-step-desc">{t("wizardStep2Desc")}</p>
+            {isEditing && (
+              <p className="wizard-mapper-warn">
+                {existingScene?.regionMappings
+                  ? t("wizardEditReuseHint")
+                  : t("wizardEditLegacyCutoutHint")}
+              </p>
+            )}
             <ImageSourceInput
               label={t("wizardMasterCutout")}
               hint={t("wizardMasterCutoutHint")}
@@ -431,7 +725,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
           </div>
         )}
 
-        {step === "zones" && (
+        {flow === "advanced" && step === "zones" && (
           <div className="wizard-step space-y-4">
             <p className="wizard-step-desc">{t("wizardZoneChecklistDesc")}</p>
             <p className="wizard-mapper-warn">{t("wizardTouchingRegionsHint")}</p>
@@ -444,7 +738,6 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
                   <input
                     type="checkbox"
                     checked={enabledZones.has(q.id)}
-                    disabled={false}
                     onChange={(e) => {
                       setEnabledZones((prev) => {
                         const next = new Set(prev);
@@ -471,7 +764,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
           </div>
         )}
 
-        {step === "mapping" && parsed && currentQuestion && (
+        {flow === "advanced" && step === "mapping" && parsed && currentQuestion && (
           <div className="wizard-step space-y-4">
             <div className="wizard-question-card">
               <p className="wizard-question-label">{t("wizardZoneQuestion")}</p>
@@ -505,7 +798,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
           </div>
         )}
 
-        {step === "review" && parsed && (
+        {step === "review" && (
           <div className="wizard-step space-y-4">
             <p className="wizard-step-desc">{t("wizardReviewDesc")}</p>
             <div className="wp-table-wrap">
@@ -514,24 +807,35 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
                   <tr>
                     <th>{t("zoneNameLabel")}</th>
                     <th>{t("category")}</th>
-                    <th>{t("wizardRegions")}</th>
+                    <th>{flow === "simple" ? t("wizardCutoutFile") : t("wizardRegions")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(assignments).map(([zoneId, regionIds]) => {
-                    const q = questions.find((q) => q.id === zoneId);
-                    return (
-                      <tr key={zoneId}>
-                        <td>{q ? t(q.labelKey as TranslationKey) : zoneId}</td>
-                        <td>{q ? paletteLabel(q.palette) : "—"}</td>
-                        <td>{regionIds.map((id) => `#${id + 1}`).join(", ")}</td>
-                      </tr>
-                    );
-                  })}
+                  {flow === "simple"
+                    ? simpleRows.filter(isRowConfigured).map((row) => (
+                        <tr key={row.key}>
+                          <td>{rowDisplayLabel(row)}</td>
+                          <td>{paletteLabel(row.palette)}</td>
+                          <td>
+                            {row.source.file?.name ||
+                              (row.existedBefore ? t("wizardKeepExistingFile") : "—")}
+                          </td>
+                        </tr>
+                      ))
+                    : Object.entries(assignments).map(([zoneId, regionIds]) => {
+                        const q = questions.find((q) => q.id === zoneId);
+                        return (
+                          <tr key={zoneId}>
+                            <td>{q ? t(q.labelKey as TranslationKey) : zoneId}</td>
+                            <td>{q ? paletteLabel(q.palette) : "—"}</td>
+                            <td>{regionIds.map((id) => `#${id + 1}`).join(", ")}</td>
+                          </tr>
+                        );
+                      })}
                 </tbody>
               </table>
             </div>
-            {skipped.size > 0 && (
+            {flow === "advanced" && skipped.size > 0 && (
               <div className="wizard-skipped">
                 <p className="wp-menu-heading" style={{ padding: 0 }}>
                   {t("wizardSkippedZones")}
@@ -553,9 +857,15 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
                 </div>
               </div>
             )}
-            {getUnmappedRegionIds(parsed.regions, assignments).length > 0 && (
-              <p className="wizard-mapper-warn">{t("wizardUnmappedWarning", { count: getUnmappedRegionIds(parsed.regions, assignments).length })}</p>
-            )}
+            {flow === "advanced" &&
+              parsed &&
+              getUnmappedRegionIds(parsed.regions, assignments).length > 0 && (
+                <p className="wizard-mapper-warn">
+                  {t("wizardUnmappedWarning", {
+                    count: getUnmappedRegionIds(parsed.regions, assignments).length,
+                  })}
+                </p>
+              )}
           </div>
         )}
 
@@ -597,12 +907,22 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
               type="button"
               className="wp-button"
               disabled={!name || !hasImageSource(basePhoto)}
-              onClick={() => setStep("cutout")}
+              onClick={() => setStep(flow === "simple" ? "simpleZones" : "cutout")}
             >
               {t("wizardNext")}
             </button>
           )}
-          {step === "cutout" && (
+          {flow === "simple" && step === "simpleZones" && (
+            <button
+              type="button"
+              className="wp-button"
+              disabled={!anyZoneConfigured(simpleRows)}
+              onClick={() => setStep("review")}
+            >
+              {t("wizardReview")}
+            </button>
+          )}
+          {flow === "advanced" && step === "cutout" && (
             <button
               type="button"
               className="wp-button"
@@ -612,7 +932,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
               {t("wizardNext")}
             </button>
           )}
-          {step === "zones" && (
+          {flow === "advanced" && step === "zones" && (
             <button
               type="button"
               className="wp-button"
@@ -622,7 +942,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
               {t("wizardStartMapping")}
             </button>
           )}
-          {step === "mapping" && (
+          {flow === "advanced" && step === "mapping" && (
             <>
               {currentQuestion?.optional && (
                 <button type="button" className="wp-button wp-button--secondary" onClick={handleSkip}>
@@ -641,7 +961,9 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
               type="button"
               className="wp-button"
               disabled={loading}
-              onClick={() => void handleSave()}
+              onClick={() =>
+                void (flow === "simple" ? handleSaveSimple() : handleSaveAdvanced())
+              }
             >
               {loading ? t("uploading") : t("saveKitchen")}
             </button>

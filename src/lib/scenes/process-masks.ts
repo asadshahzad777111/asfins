@@ -196,12 +196,18 @@ function layerUsesAlphaCutout(layerRaw: Buffer, W: number, H: number): boolean {
   return layerHasAlphaVariation(layerRaw, W * H);
 }
 
-function buildMaskPixels(
+/**
+ * Classify every pixel of a layer/cutout PNG as "inside the recolour zone" (1) or not (0),
+ * against the same base photo, using the same alpha-vs-black-background heuristic + morphological
+ * cleanup as `buildMaskFromLayer`. Exported so callers that need the raw binary (e.g. merging several
+ * per-zone cutouts into one combined hole mask) match the exact convention used for per-zone masks.
+ */
+export function computeMaskBinary(
   baseRaw: Buffer,
   layerRaw: Buffer,
   W: number,
   H: number
-): Buffer {
+): Uint8Array {
   const binary = new Uint8Array(W * H);
   const alphaCutout = layerUsesAlphaCutout(layerRaw, W, H);
   const polarity = alphaCutout ? detectAlphaPolarity(layerRaw, W * H) : null;
@@ -223,7 +229,16 @@ function buildMaskPixels(
   }
 
   const opened = morphOpen(binary, W, H, 1);
-  const cleaned = morphClose(opened, W, H, 1);
+  return morphClose(opened, W, H, 1);
+}
+
+function buildMaskPixels(
+  baseRaw: Buffer,
+  layerRaw: Buffer,
+  W: number,
+  H: number
+): Buffer {
+  const cleaned = computeMaskBinary(baseRaw, layerRaw, W, H);
 
   const mask = Buffer.alloc(W * H * 4);
   for (let i = 0; i < W * H; i++) {
@@ -350,6 +365,10 @@ export async function ensureBaseJpeg(
   if (ext === ".png") {
     await sharp(baseSrc).jpeg({ quality: 92 }).toFile(baseJpg);
   } else if (ext === ".jpg" || ext === ".jpeg") {
+    // Sharp cannot read+write the same path — skip when the upload is already base.jpg.
+    if (path.resolve(baseSrc) === path.resolve(baseJpg)) {
+      return baseJpg;
+    }
     await sharp(baseSrc).jpeg({ quality: 92 }).toFile(baseJpg);
   }
 

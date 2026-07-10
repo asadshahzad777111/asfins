@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 export type ImageSourceMode = "upload" | "url";
@@ -39,9 +39,12 @@ export function ImageSourceInput({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Sync draft when parent URL changes (React "adjust state during render" pattern).
+  const [prevUrl, setPrevUrl] = useState(value.url);
+  if (prevUrl !== value.url) {
+    setPrevUrl(value.url);
     setUrlDraft(value.url);
-  }, [value.url]);
+  }
 
   function setMode(mode: ImageSourceMode) {
     setError(null);
@@ -90,10 +93,12 @@ export function ImageSourceInput({
 
   return (
     <div className="space-y-3">
-      <div>
-        <p className="text-sm font-semibold text-charcoal">{label}</p>
-        {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
-      </div>
+      {(label || hint) && (
+        <div>
+          {label ? <p className="text-sm font-semibold text-charcoal">{label}</p> : null}
+          {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
+        </div>
+      )}
 
       <div className="flex gap-1 rounded-sm border border-divider bg-marble p-1">
         <button

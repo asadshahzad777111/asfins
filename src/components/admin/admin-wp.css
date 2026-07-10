@@ -623,6 +623,64 @@
   font-size: 0.84rem;
 }
 
+.wizard-flow-toggle {
+  margin-top: 0.75rem;
+  font-size: 0.82rem;
+  color: #50575e;
+}
+
+.wizard-flow-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #2271b1;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.wizard-simple-section {
+  border: 1px solid #dcdcde;
+  border-radius: 2px;
+  padding: 0.85rem 1rem;
+  background: #fff;
+}
+
+.wizard-simple-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.wizard-zone-slot {
+  border: 1px dashed #c3c4c7;
+  border-radius: 2px;
+  padding: 0.75rem;
+  background: #f6f7f7;
+}
+
+.wizard-zone-slot--removed {
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.wizard-zone-slot-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.wizard-zone-current-badge {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: #1d7a3a;
+}
+
 .text-muted {
   color: #50575e;
 }
