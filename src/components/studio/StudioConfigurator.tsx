@@ -23,6 +23,7 @@ import { ZoneSplitOverlay } from "@/components/studio/ZoneSplitOverlay";
 import type { Catalog, CatalogSwatch } from "@/lib/catalogs/types";
 import type { FinishMode, LightingMode, ZoneBoundingBox } from "@/lib/canvas/engine";
 import {
+  getCabinetMultiColourZones,
   sceneHasCabinetMultiColour,
   type ColourBlock,
 } from "@/lib/canvas/colour-board";
@@ -88,6 +89,18 @@ export function StudioConfigurator({
   const [splitDragging, setSplitDragging] = useState(false);
 
   const canMultiColour = sceneHasCabinetMultiColour(scene.zones);
+  const cabinetZones = useMemo(
+    () => getCabinetMultiColourZones(scene.zones),
+    [scene.zones]
+  );
+  const clipMaskUrls = useMemo(
+    () => cabinetZones.map((z) => z.maskPath),
+    [cabinetZones]
+  );
+  const cutoutUrls = useMemo(() => {
+    const dir = scene.basePhoto.replace(/\/[^/]+$/, "");
+    return [`${dir}/cutout.png`, `${dir}/master-cutout.png`];
+  }, [scene.basePhoto]);
 
   const sceneCatalogs = useMemo(
     () =>
@@ -306,19 +319,6 @@ export function StudioConfigurator({
         onChange={(v) => setLighting(v as LightingMode)}
       />
       <div className="flex flex-col gap-2 pt-1">
-        {canMultiColour && (
-          <button
-            type="button"
-            disabled={!ready}
-            onClick={openMultiColour}
-            className="w-full border border-dashed border-divider py-2.5 font-mono-data text-[9px] uppercase tracking-[0.14em] text-muted transition-colors hover:border-brass hover:text-brass disabled:opacity-40"
-          >
-            {t("multiColourAdvancedButton")}
-            {state.cabinetColourBoard.length > 0
-              ? ` (${state.cabinetColourBoard.length})`
-              : ""}
-          </button>
-        )}
         <button
           type="button"
           disabled={!ready}
@@ -341,80 +341,120 @@ export function StudioConfigurator({
 
   const splitPanel = (
     <div className="border-b border-divider p-3">
-      <div className="flex items-center justify-between">
-        <p className="font-mono-data text-[9px] uppercase tracking-[0.2em] text-muted">
-          {t("splitTitle")}
-        </p>
-        {hasActiveSplit && (
-          <button
-            type="button"
-            onClick={clearSplit}
-            className="font-mono-data text-[9px] uppercase tracking-wider text-brass hover:underline"
-          >
-            {t("splitClear")}
-          </button>
-        )}
-      </div>
+      <p className="font-mono-data text-[9px] uppercase tracking-[0.2em] text-muted">
+        {t("multiColourSectionTitle")}
+      </p>
+      <p className="mt-1 font-mono-data text-[9px] leading-relaxed text-muted">
+        {t("multiColourSectionHint")}
+      </p>
 
-      {!hasActiveSplit ? (
-        <button
-          type="button"
-          disabled={!ready}
-          onClick={startSplit}
-          className="mt-2 w-full border border-brass/50 py-2.5 font-mono-data text-[10px] uppercase tracking-wider text-brass transition-colors hover:bg-brass/10 disabled:opacity-40"
-        >
-          {t("splitStart")}
-        </button>
-      ) : (
-        <div className="mt-2 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {activeSplit!.segments.map((seg, i) => (
-              <button
-                key={seg.id}
-                type="button"
-                onClick={() => setActiveSegmentId(seg.id)}
-                title={`${t("splitSegment")} ${i + 1}`}
-                className={`relative h-11 w-11 rounded-sm border-2 transition-colors ${
-                  activeSegmentId === seg.id ? "border-brass shadow-md" : "border-divider"
-                }`}
-                style={{
-                  backgroundColor: seg.hex,
-                  backgroundImage: seg.imageUrl ? `url(${seg.imageUrl})` : undefined,
-                  backgroundSize: "cover",
-                }}
-              >
-                <span className="absolute -bottom-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-charcoal font-mono-data text-[8px] text-white">
-                  {i + 1}
-                </span>
-                <span
-                  role="button"
-                  aria-label={t("splitRemoveColour")}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeSegment(seg.id);
-                  }}
-                  className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-charcoal text-[9px] leading-none text-white hover:bg-brass"
-                >
-                  ×
-                </span>
-              </button>
-            ))}
-            {activeSplit!.segments.length < MAX_SPLIT_SEGMENTS && (
+      <div className="mt-3 space-y-2">
+        <div className="rounded-sm border border-brass/40 bg-brass/5 p-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-mono-data text-[9px] uppercase tracking-wider text-brass">
+              1 · {t("splitStart")}
+            </p>
+            {hasActiveSplit && (
               <button
                 type="button"
-                onClick={addSegment}
-                aria-label={t("splitAddColour")}
-                className="flex h-11 w-11 items-center justify-center rounded-sm border border-dashed border-divider text-muted transition-colors hover:border-brass hover:text-brass"
+                onClick={clearSplit}
+                className="font-mono-data text-[9px] uppercase tracking-wider text-brass hover:underline"
               >
-                +
+                {t("splitClear")}
               </button>
             )}
           </div>
-          <p className="font-mono-data text-[9px] leading-relaxed text-muted">
-            {activeSegmentId ? t("splitPickingFor", { n: 1 + activeSplit!.segments.findIndex((s) => s.id === activeSegmentId) }) : t("splitHint")}
+          <p className="mt-1 font-mono-data text-[9px] leading-relaxed text-muted">
+            {t("splitOptionHint")}
           </p>
+
+          {!hasActiveSplit ? (
+            <button
+              type="button"
+              disabled={!ready}
+              onClick={startSplit}
+              className="mt-2 w-full border border-brass/50 bg-white py-2.5 font-mono-data text-[10px] uppercase tracking-wider text-brass transition-colors hover:bg-brass/10 disabled:opacity-40"
+            >
+              {t("splitStartShort")}
+            </button>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {activeSplit!.segments.map((seg, i) => (
+                  <button
+                    key={seg.id}
+                    type="button"
+                    onClick={() => setActiveSegmentId(seg.id)}
+                    title={`${t("splitSegment")} ${i + 1}`}
+                    className={`relative h-11 w-11 rounded-sm border-2 transition-colors ${
+                      activeSegmentId === seg.id ? "border-brass shadow-md" : "border-divider"
+                    }`}
+                    style={{
+                      backgroundColor: seg.hex,
+                      backgroundImage: seg.imageUrl ? `url(${seg.imageUrl})` : undefined,
+                      backgroundSize: "cover",
+                    }}
+                  >
+                    <span className="absolute -bottom-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-charcoal font-mono-data text-[8px] text-white">
+                      {i + 1}
+                    </span>
+                    <span
+                      role="button"
+                      aria-label={t("splitRemoveColour")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeSegment(seg.id);
+                      }}
+                      className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-charcoal text-[9px] leading-none text-white hover:bg-brass"
+                    >
+                      ×
+                    </span>
+                  </button>
+                ))}
+                {activeSplit!.segments.length < MAX_SPLIT_SEGMENTS && (
+                  <button
+                    type="button"
+                    onClick={addSegment}
+                    aria-label={t("splitAddColour")}
+                    className="flex h-11 w-11 items-center justify-center rounded-sm border border-dashed border-divider text-muted transition-colors hover:border-brass hover:text-brass"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+              <p className="font-mono-data text-[9px] leading-relaxed text-muted">
+                {activeSegmentId
+                  ? t("splitPickingFor", {
+                      n: 1 + activeSplit!.segments.findIndex((s) => s.id === activeSegmentId),
+                    })
+                  : t("splitHint")}
+              </p>
+            </div>
+          )}
         </div>
-      )}
+
+        {canMultiColour && (
+          <div className="rounded-sm border border-dashed border-divider p-2.5">
+            <p className="font-mono-data text-[9px] uppercase tracking-wider text-muted">
+              2 · {t("multiColourAdvancedButton")}
+            </p>
+            <p className="mt-1 font-mono-data text-[9px] leading-relaxed text-muted">
+              {t("boardOptionHint")}
+            </p>
+            <button
+              type="button"
+              disabled={!ready}
+              onClick={openMultiColour}
+              className="mt-2 w-full border border-divider py-2.5 font-mono-data text-[9px] uppercase tracking-[0.14em] text-muted transition-colors hover:border-brass hover:text-brass disabled:opacity-40"
+            >
+              {t("multiColourAdvancedButton")}
+              {state.cabinetColourBoard.length > 0
+                ? ` (${state.cabinetColourBoard.length})`
+                : ""}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -456,6 +496,8 @@ export function StudioConfigurator({
           sceneWidth={scene.width}
           sceneHeight={scene.height}
           basePhotoUrl={scene.basePhoto}
+          cutoutUrls={cutoutUrls}
+          clipMaskUrls={clipMaskUrls}
           blocks={draftBoard}
           onChange={setDraftBoard}
           catalogs={sceneCatalogs}
