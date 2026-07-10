@@ -43,15 +43,15 @@ function maskIsInside(
  * Physical laminate sheet: 8 ft × 4 ft (2440×1220 mm) → aspect 2:1.
  * Scenes have no metric scale. Assume the photo's vertical axis is a typical
  * floor-to-ceiling height (~11 ft), derive pixels-per-foot, then size one tile
- * as one physical sheet. That yields mid-size grain (more sheets across a
- * kitchen run) instead of oversized swirls from a ~2-sheets-wide guess.
+ * as one physical sheet × 0.6 (~40% smaller) so grain reads finer across a run.
  */
 const ROOM_HEIGHT_FT = 11;
 const SHEET_LONG_FT = 8;
 const SHEET_SHORT_FT = 4;
-/** Keep tiles mid-size on tiny/huge canvases (8 ft side ≈ 192–512 px). */
+/** Scale sheets down ~40% vs full ppf; keep mid-size clamps (8 ft ≈ 115–307 px). */
 const MIN_PPF = 24;
 const MAX_PPF = 64;
+const TILE_SCALE = 0.6;
 
 /** Integer tile size — fractional drawImage destinations create seam lines. */
 export function computeTextureTileSize(
@@ -61,9 +61,10 @@ export function computeTextureTileSize(
   canvasH: number
 ): { tileW: number; tileH: number } {
   const sceneH = Math.max(canvasH, 1);
-  const ppf = Math.min(MAX_PPF, Math.max(MIN_PPF, sceneH / ROOM_HEIGHT_FT));
-  const sheetLongPx = Math.max(64, Math.floor(SHEET_LONG_FT * ppf));
-  const sheetShortPx = Math.max(32, Math.floor(SHEET_SHORT_FT * ppf));
+  const ppf =
+    Math.min(MAX_PPF, Math.max(MIN_PPF, sceneH / ROOM_HEIGHT_FT)) * TILE_SCALE;
+  const sheetLongPx = Math.max(40, Math.floor(SHEET_LONG_FT * ppf));
+  const sheetShortPx = Math.max(20, Math.floor(SHEET_SHORT_FT * ppf));
 
   // Landscape source → 8 ft along X; otherwise portrait (common on cabinet faces).
   const srcLandscape = textureW > textureH * 1.1;
