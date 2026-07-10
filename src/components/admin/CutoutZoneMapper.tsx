@@ -20,6 +20,8 @@ interface CutoutZoneMapperProps {
   onAssignRegion: (regionId: number) => void;
   zoneOptions?: { id: string; label: string }[];
   onAssignRegionToZone?: (regionId: number, zoneId: string) => void;
+  /** Show region dropdown list above the canvas (region-first labeling). */
+  regionListFirst?: boolean;
 }
 
 export function CutoutZoneMapper({
@@ -33,6 +35,7 @@ export function CutoutZoneMapper({
   onAssignRegion,
   zoneOptions = [],
   onAssignRegionToZone,
+  regionListFirst = false,
 }: CutoutZoneMapperProps) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,6 +71,7 @@ export function CutoutZoneMapper({
         let alpha = 0.35;
         if (assignedZone === currentZoneId) alpha = 0.65;
         else if (assignedZone) alpha = 0.25;
+        else alpha = 0.55; // unmapped — stand out for labeling
         if (rid === hoverRegion) alpha = Math.min(alpha + 0.25, 0.85);
 
         data[pi] = Math.round(data[pi] * (1 - alpha) + r * alpha);
@@ -161,6 +165,16 @@ export function CutoutZoneMapper({
         </p>
       </div>
 
+      {regionListFirst && (
+        <RegionLegend
+          regions={parsed.regions}
+          regionToZone={regionToZone}
+          currentZoneId={currentZoneId}
+          zoneOptions={zoneOptions}
+          onAssignRegionToZone={onAssignRegionToZone}
+        />
+      )}
+
       <div ref={containerRef} className="wizard-mapper-canvas-wrap">
         <canvas
           ref={canvasRef}
@@ -176,13 +190,15 @@ export function CutoutZoneMapper({
         />
       </div>
 
-      <RegionLegend
-        regions={parsed.regions}
-        regionToZone={regionToZone}
-        currentZoneId={currentZoneId}
-        zoneOptions={zoneOptions}
-        onAssignRegionToZone={onAssignRegionToZone}
-      />
+      {!regionListFirst && (
+        <RegionLegend
+          regions={parsed.regions}
+          regionToZone={regionToZone}
+          currentZoneId={currentZoneId}
+          zoneOptions={zoneOptions}
+          onAssignRegionToZone={onAssignRegionToZone}
+        />
+      )}
     </div>
   );
 }

@@ -234,8 +234,59 @@ export function CatalogsAdmin({ initialCatalogs }: CatalogsAdminProps) {
                         setSwatches((s) => updateSwatch(s, i, { imageUrl: e.target.value }))
                       }
                       placeholder={t("textureImageUrl")}
-                      className="rounded-sm border border-divider px-2 py-1.5 text-sm sm:col-span-4"
+                      className="rounded-sm border border-divider px-2 py-1.5 text-sm sm:col-span-3"
                     />
+                    <label className="flex cursor-pointer items-center justify-center rounded-sm border border-dashed border-brass/40 bg-brass/5 px-2 py-1.5 font-mono-data text-[9px] uppercase tracking-wider text-brass hover:bg-brass/10 sm:col-span-1">
+                      {t("uploadTexture")}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = "";
+                          if (!file) return;
+                          const folder =
+                            (editingId ?? companyName || "custom")
+                              .toLowerCase()
+                              .replace(/[^a-z0-9-_]+/g, "-")
+                              .replace(/^-|-$/g, "") || "custom";
+                          const code =
+                            (sw.sheetCode || sw.id || `sw-${i}`)
+                              .replace(/[^a-zA-Z0-9-_]/g, "") || `sw-${Date.now()}`;
+                          const fd = new FormData();
+                          fd.append("file", file);
+                          fd.append("folder", folder);
+                          fd.append("code", code);
+                          setLoading(true);
+                          try {
+                            const res = await fetch("/api/admin/catalog-texture", {
+                              method: "POST",
+                              body: fd,
+                            });
+                            const data = await res.json();
+                            if (!res.ok) {
+                              setMessage({
+                                type: "err",
+                                text: data.error ?? t("uploadTextureFail"),
+                              });
+                              return;
+                            }
+                            setSwatches((s) =>
+                              updateSwatch(s, i, {
+                                imageUrl: data.imageUrl,
+                                thumbUrl: data.thumbUrl,
+                              })
+                            );
+                            setMessage({ type: "ok", text: t("uploadTextureOk") });
+                          } catch {
+                            setMessage({ type: "err", text: t("uploadTextureFail") });
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={() => setExpandedSwatch(open ? null : sw.id)}

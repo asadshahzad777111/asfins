@@ -8,6 +8,13 @@ import {
 } from "@/lib/images/mask-alpha";
 import { canvasSafeTextureUrl } from "@/lib/images/canvas-safe-url";
 import { textureizeMask } from "@/lib/canvas/texture-mask";
+import {
+  buildCabinetUnionMask,
+  clipBoardToCabinetMask,
+  getCabinetMultiColourZones,
+  paintColourBoard,
+  type ColourBlock,
+} from "@/lib/canvas/colour-board";
 
 export type FinishMode = "matt" | "glossy";
 export type LightingMode = "day" | "night";
@@ -15,11 +22,15 @@ export type LightingMode = "day" | "night";
 export type ZoneColors = Record<string, string>;
 export type ZoneTextures = Record<string, string | undefined>;
 
+export type { ColourBlock };
+
 export interface RenderState {
   zoneColors: ZoneColors;
   zoneTextures: ZoneTextures;
   finish: FinishMode;
   lighting: LightingMode;
+  /** Multi-colour back board for cabinets only; empty = use per-zone colours. */
+  cabinetColourBoard: ColourBlock[];
 }
 
 export type PartialZoneColors = Partial<ZoneColors>;
@@ -29,6 +40,7 @@ export type ConfiguratorUpdate = {
   zoneTextures?: Partial<ZoneTextures>;
   finish?: FinishMode;
   lighting?: LightingMode;
+  cabinetColourBoard?: ColourBlock[];
 };
 
 export interface LoadedAssets {
@@ -325,6 +337,7 @@ export class SceneRenderer {
       ...this.state,
       zoneColors: { ...this.state.zoneColors },
       zoneTextures: { ...this.state.zoneTextures },
+      cabinetColourBoard: [...this.state.cabinetColourBoard],
     };
     const mergedZoneColors = partial.zoneColors
       ? { ...this.state.zoneColors }
@@ -347,7 +360,17 @@ export class SceneRenderer {
       ...partial,
       zoneColors: mergedZoneColors,
       zoneTextures: mergedZoneTextures,
+      cabinetColourBoard:
+        partial.cabinetColourBoard !== undefined
+          ? partial.cabinetColourBoard
+          : this.state.cabinetColourBoard,
     };
+
+    if (partial.cabinetColourBoard !== undefined) {
+      this.zoneCache.clear();
+      this.scheduleRender();
+      return;
+    }
 
     if (partial.zoneColors || partial.zoneTextures) {
       const changedZones = new Set([
@@ -457,6 +480,9 @@ export class SceneRenderer {
     if (!this.assets) return;
     const { width, height } = this.scene;
     const sorted = [...this.scene.zones].sort((a, b) => a.zIndex - b.zIndex);
+    const cabinetZones = getCabinetMultiColourZones(this.scene.zones);
+    const cabinetIds = new Set(cabinetZones.map((z) => z.id));
+    const useBoard = this.state.cabinetColourBoard.length > 0 && cabinetIds.size > 0;
 
     const colorLayer = document.createElement("canvas");
     colorLayer.width = width;
@@ -464,8 +490,36 @@ export class SceneRenderer {
     const colorCtx = colorLayer.getContext("2d")!;
 
     for (const zone of sorted) {
+      // When multi-colour board is active, skip per-zone cabinet fills —
+      // the board composite replaces them.
+      if (useBoard && cabinetIds.has(zone.id)) continue;
       const layer = await this.getZoneCanvas(zone.id);
       if (layer) colorCtx.drawImage(layer, 0, 0);
+    }
+
+    if (useBoard) {
+      const board = await paintColourBoard(
+        this.state.cabinetColourBoard,
+        width,
+        height,
+        (url) => this.preloadTexture(url)
+      );
+      const union = buildCabinetUnionMask(
+        this.assets.masks,
+        [...cabinetIds],
+        width,
+        height
+      );
+      let clipped = clipBoardToCabinetMask(board, union, width, height);
+      if (this.assets.cutoutHoleData) {
+        clipLayerToCutoutHoles(
+          clipped,
+          this.assets.cutoutHoleData,
+          width,
+          height
+        );
+      }
+      colorCtx.drawImage(clipped, 0, 0);
     }
 
     this.ctx.clearRect(0, 0, width, height);

@@ -10,6 +10,7 @@ import {
   type RenderState,
   type ZoneColors,
   type ZoneTextures,
+  type ColourBlock,
 } from "@/lib/canvas/engine";
 import type { SceneConfig } from "@/lib/scenes/types";
 import type { CatalogSwatch } from "@/lib/catalogs/types";
@@ -32,6 +33,7 @@ export function useConfigurator(
     zoneTextures: {},
     finish: "matt",
     lighting: "day",
+    cabinetColourBoard: [],
   }));
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export function useConfigurator(
       zoneTextures: {},
       finish: "matt",
       lighting: "day",
+      cabinetColourBoard: [],
     };
     setState(initialState);
 
@@ -92,6 +95,10 @@ export function useConfigurator(
         lighting: partial.lighting ?? prev.lighting,
         zoneColors: mergedColors,
         zoneTextures: mergedTextures,
+        cabinetColourBoard:
+          partial.cabinetColourBoard !== undefined
+            ? partial.cabinetColourBoard
+            : prev.cabinetColourBoard,
       };
       rendererRef.current?.setState(partial);
       return next;
@@ -107,8 +114,6 @@ export function useConfigurator(
           try {
             await rendererRef.current?.preloadTexture(imageUrl);
           } catch {
-            // R2/CORS or network failure — still apply solid hex so the
-            // preview updates; getZoneCanvas will fall back to colorizeMask.
             textureUrl = undefined;
           }
         }
@@ -139,6 +144,17 @@ export function useConfigurator(
     [update]
   );
 
+  const setCabinetColourBoard = useCallback(
+    (blocks: ColourBlock[]) => {
+      setApplying(true);
+      update({ cabinetColourBoard: blocks });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setApplying(false));
+      });
+    },
+    [update]
+  );
+
   const setFinish = useCallback(
     (finish: FinishMode) => update({ finish }),
     [update]
@@ -157,7 +173,11 @@ export function useConfigurator(
     const defaults = defaultZoneColors(scene.zones);
     const clearedTextures: ZoneTextures = {};
     for (const z of scene.zones) clearedTextures[z.id] = undefined;
-    update({ zoneColors: defaults, zoneTextures: clearedTextures });
+    update({
+      zoneColors: defaults,
+      zoneTextures: clearedTextures,
+      cabinetColourBoard: [],
+    });
   }, [scene.zones, update]);
 
   return {
@@ -169,6 +189,7 @@ export function useConfigurator(
     setZoneColor,
     setZoneFromSwatch,
     setZoneColors,
+    setCabinetColourBoard,
     setFinish,
     setLighting,
     exportPng,

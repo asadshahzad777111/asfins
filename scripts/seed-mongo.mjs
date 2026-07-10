@@ -1,19 +1,53 @@
 /**
  * Push data/*.json into MongoDB (first deploy or reset).
- * Usage: MONGODB_URI=... node scripts/seed-mongo.mjs
+ * Usage: npm run seed-mongo
+ * Loads MONGODB_URI / MONGODB_DB_NAME from env or .env.local (does not print secrets).
  */
-import { readFile } from "fs/promises";
+import { readFile, access } from "fs/promises";
+import dns from "dns";
 import path from "path";
 import { fileURLToPath } from "url";
 import { MongoClient } from "mongodb";
 
+// Some local/router DNS resolvers refuse SRV (querySrv ECONNREFUSED on Windows).
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
-const DB_NAME = process.env.MONGODB_DB_NAME ?? "asfins";
 
+async function loadEnvLocal() {
+  const envPath = path.join(ROOT, ".env.local");
+  try {
+    await access(envPath);
+  } catch {
+    return;
+  }
+  const raw = await readFile(envPath, "utf8");
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = val;
+  }
+}
+
+await loadEnvLocal();
+
+const DB_NAME = process.env.MONGODB_DB_NAME ?? "asfins";
 const uri = process.env.MONGODB_URI;
 if (!uri || uri.includes("YOUR_")) {
-  console.error("Set MONGODB_URI in environment first.");
+  console.error(
+    "Set MONGODB_URI in .env.local or the environment first. See MONGODB_SETUP.md"
+  );
   process.exit(1);
 }
 

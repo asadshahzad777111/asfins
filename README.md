@@ -68,36 +68,32 @@ npm run dev
 
 ---
 
-## MongoDB (NEW Atlas — separate database)
+## MongoDB (ASFins Atlas — database `asfins`)
 
-**Purani MongoDB ya asfixgear wali URI mat use karein!**
+**Do not reuse asplygear or any other project URI.**  
+Full steps: **[MONGODB_SETUP.md](./MONGODB_SETUP.md)** · also in **[DEPLOY.md](./DEPLOY.md)** Step 3.
 
-Database name: **`artisan-color-configurator`** (alag project)
+Database name: **`asfins`**
 
-### Naya Gmail se Atlas setup
-
-1. **mongodb.com/cloud/atlas** → Sign up with **new Gmail**
-2. New project: **"Artisan Color Configurator"**
-3. **Build a Database** → **M0 FREE** cluster
-4. **Database Access** → Add user (username + password)
-5. **Network Access** → Add IP **0.0.0.0/0** (testing ke liye)
-6. **Connect** → Drivers → copy connection string
-7. Replace `<password>` and add database name:
+1. [cloud.mongodb.com](https://cloud.mongodb.com) → **M0 Free** cluster
+2. **Database Access** → user + password
+3. **Network Access** → `0.0.0.0/0`
+4. **Connect** → copy URI → set path `/asfins?...`
+5. `.env.local` + Vercel:
 
 ```
-mongodb+srv://USER:PASS@cluster.mongodb.net/artisan-color-configurator?retryWrites=true&w=majority
+MONGODB_URI=mongodb+srv://USER:PASS@cluster.mongodb.net/asfins?retryWrites=true&w=majority
+MONGODB_DB_NAME=asfins
 ```
 
-8. Copy `.env.example` → `.env.local` and paste YOUR new URI
+6. Seed full JSON (340 ZRK swatches + 340 products):
 
 ```bash
-cp .env.example .env.local   # Windows: copy .env.example .env.local
-# Edit .env.local — apni NAYI Atlas URI lagayein
+npm run seed-mongo
 ```
 
-**Bina MongoDB:** App `data/*.json` files use karega automatically.
+**Without MongoDB:** App uses `data/*.json` automatically.
 
----
 
 ## Render free deploy
 
@@ -110,7 +106,8 @@ cp .env.example .env.local   # Windows: copy .env.example .env.local
 
 | Variable | Value |
 |----------|-------|
-| `MONGODB_URI` | Your **NEW** Atlas URI (`artisan-color-configurator` DB) |
+| `MONGODB_URI` | Your **NEW** Atlas URI (database **`asfins`**) |
+| `MONGODB_DB_NAME` | `asfins` |
 | `ADMIN_PASSWORD` | `artisan-admin` (change in production) |
 | `ADMIN_JWT_SECRET` | Long random string |
 | `NODE_ENV` | `production` (auto from render.yaml) |

@@ -18,8 +18,13 @@ import { roomLabel } from "@/lib/i18n/translations";
 import type { SceneConfig, ZonePalette } from "@/lib/scenes/types";
 import type { SceneRecord } from "@/lib/scenes/types";
 import { ApplyingOverlay } from "@/components/ApplyingOverlay";
+import { CabinetMultiColourEditor } from "@/components/studio/CabinetMultiColourEditor";
 import type { Catalog, CatalogSwatch } from "@/lib/catalogs/types";
 import type { FinishMode, LightingMode } from "@/lib/canvas/engine";
+import {
+  sceneHasCabinetMultiColour,
+  type ColourBlock,
+} from "@/lib/canvas/colour-board";
 
 interface StudioConfiguratorProps {
   scene: SceneConfig;
@@ -65,6 +70,10 @@ export function StudioConfigurator({
   const [selectedCatalogId, setSelectedCatalogId] = useState(() =>
     defaultCatalogForPalette(catalogs, "wood")
   );
+  const [studioMode, setStudioMode] = useState<"kitchen" | "multiColour">("kitchen");
+  const [draftBoard, setDraftBoard] = useState<ColourBlock[]>([]);
+
+  const canMultiColour = sceneHasCabinetMultiColour(scene.zones);
 
   const sceneCatalogs = useMemo(
     () =>
@@ -99,6 +108,7 @@ export function StudioConfigurator({
     state,
     setZoneFromSwatch,
     setZoneColors,
+    setCabinetColourBoard,
     setFinish,
     setLighting,
     exportPng,
@@ -150,6 +160,16 @@ export function StudioConfigurator({
 
   const categoryLabel = roomLabel(lang, sceneRecord.category);
 
+  const openMultiColour = useCallback(() => {
+    setDraftBoard(state.cabinetColourBoard.map((b) => ({ ...b })));
+    setStudioMode("multiColour");
+  }, [state.cabinetColourBoard]);
+
+  const finishMultiColour = useCallback(() => {
+    setCabinetColourBoard(draftBoard);
+    setStudioMode("kitchen");
+  }, [draftBoard, setCabinetColourBoard]);
+
   const lookPanel = (
     <div className="space-y-4 p-4">
       <ToggleSwitch
@@ -171,6 +191,19 @@ export function StudioConfigurator({
         onChange={(v) => setLighting(v as LightingMode)}
       />
       <div className="flex flex-col gap-2 pt-1">
+        {canMultiColour && (
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={openMultiColour}
+            className="w-full border border-brass/60 bg-brass/10 py-3 font-mono-data text-[10px] uppercase tracking-[0.14em] text-brass transition-colors hover:bg-brass/20 disabled:opacity-40"
+          >
+            {t("multiColourButton")}
+            {state.cabinetColourBoard.length > 0
+              ? ` (${state.cabinetColourBoard.length})`
+              : ""}
+          </button>
+        )}
         <button
           type="button"
           disabled={!ready}
@@ -223,6 +256,21 @@ export function StudioConfigurator({
 
   return (
     <div className="studio-configurator flex h-[calc(100vh-3rem)] flex-col bg-base">
+      {studioMode === "multiColour" && (
+        <CabinetMultiColourEditor
+          sceneWidth={scene.width}
+          sceneHeight={scene.height}
+          basePhotoUrl={scene.basePhoto}
+          blocks={draftBoard}
+          onChange={setDraftBoard}
+          catalogs={sceneCatalogs}
+          onDone={finishMultiColour}
+          onClear={() => {
+            setDraftBoard([]);
+            setCabinetColourBoard([]);
+          }}
+        />
+      )}
       <StudioToolbar
         sceneName={scene.name}
         zoneLabel={activeZoneConfig?.label ?? ""}
@@ -249,8 +297,18 @@ export function StudioConfigurator({
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-center border-b border-divider bg-base px-4 py-2">
+          <div className="flex items-center justify-center gap-3 border-b border-divider bg-base px-4 py-2">
             <p className="studio-panel-label">{t("livePreview")}</p>
+            {canMultiColour && (
+              <button
+                type="button"
+                disabled={!ready}
+                onClick={openMultiColour}
+                className="rounded-sm border border-brass/50 px-2.5 py-1 font-mono-data text-[9px] uppercase tracking-wider text-brass hover:bg-brass/10 disabled:opacity-40"
+              >
+                {t("multiColourButton")}
+              </button>
+            )}
           </div>
 
           <div className="flex flex-1 items-center justify-center overflow-hidden p-3 sm:p-5">

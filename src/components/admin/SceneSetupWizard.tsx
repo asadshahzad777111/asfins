@@ -69,10 +69,11 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
 
   useEffect(() => {
     const qs = getZoneQuestions(category as "kitchen");
-    const defaults = new Set(qs.filter((q) => !q.optional || q.id === "floor").map((q) => q.id));
+    const defaults = new Set(
+      qs.filter((q) => !q.optional && q.zoneGroup === "wood").map((q) => q.id)
+    );
     if (category === "kitchen") {
       [
-        "floor",
         "upper-cabinet-left",
         "upper-cabinet-mid",
         "upper-cabinet-right",
@@ -443,7 +444,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
                   <input
                     type="checkbox"
                     checked={enabledZones.has(q.id)}
-                    disabled={q.id === "floor"}
+                    disabled={false}
                     onChange={(e) => {
                       setEnabledZones((prev) => {
                         const next = new Set(prev);
@@ -481,6 +482,9 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
                 {paletteLabel(currentQuestion.palette)}
                 {currentQuestion.optional && ` · ${t("wizardOptional")}`}
               </p>
+              <p className="wizard-mapper-warn" style={{ marginTop: "0.5rem" }}>
+                {t("wizardTouchingRegionsHint")}
+              </p>
             </div>
             <CutoutZoneMapper
               basePreviewUrl={basePhoto.preview}
@@ -496,6 +500,7 @@ export function SceneSetupWizard({ catalogs, onComplete, onCancel }: SceneSetupW
                 label: t(q.labelKey as TranslationKey),
               }))}
               onAssignRegionToZone={handleAssignRegionToZone}
+              regionListFirst
             />
           </div>
         )}

@@ -140,6 +140,20 @@ export const translations = {
     doubleShadeWhiteNavy: "White + Navy",
     doubleShadeTeakSage: "Teak + Sage",
 
+    // Multi-colour cabinet board
+    multiColourButton: "Multi colour",
+    multiColourTitle: "Cabinet multi colour",
+    multiColourHint: "Drag laminate swatches onto the board. Resize and stack — only cabinets change.",
+    multiColourDone: "Done — back to kitchen",
+    multiColourClear: "Clear board",
+    multiColourForward: "Bring forward",
+    multiColourBack: "Send back",
+    multiColourRemove: "Remove",
+    multiColourDragSwatch: "Tap or drag a swatch onto the board",
+    uploadTexture: "Upload file",
+    uploadTextureOk: "Texture uploaded — local path set.",
+    uploadTextureFail: "Texture upload failed.",
+
     // Color catalog
     chooseWoodColour: "Choose your wood colour",
     choosePaintColour: "Choose paint colour",
@@ -385,10 +399,13 @@ export const translations = {
     wizardReview: "Review",
     wizardSaveAnyway: "Save anyway",
     wizardGoBackMap: "Go back to mapping",
-    wizardZoneChecklistDesc: "Which parts did you cut out in Photopea? Only checked zones will be mapped.",
-    wizardZoneChecklist: "Cut-out checklist",
+    wizardZoneChecklistDesc:
+      "What did you cut in this kitchen? Tick first — only checked zones appear in mapping (floor, walls, upper/lower cabinets, island…).",
+    wizardZoneChecklist: "Cut-out checklist — ask this first",
+    wizardRegionLegend: "Each transparent region — choose a label",
     wizardRegionAssign: "Assign region",
-    wizardTouchingRegionsHint: "Tip: separate touching cabinets with a 1–2px gap in Photopea so each box gets its own region.",
+    wizardTouchingRegionsHint:
+      "If two cabinets look like one blob, leave a 1–2 px opaque gap in Photopea so flood-fill treats them as separate regions.",
 
     zoneCeiling: "Ceiling",
     zoneWallLeft: "Left wall",
@@ -579,6 +596,20 @@ export const translations = {
     doubleShadeOakCharcoal: "Oak + Charcoal",
     doubleShadeWhiteNavy: "White + Navy",
     doubleShadeTeakSage: "Teak + Sage",
+
+    multiColourButton: "Multi colour",
+    multiColourTitle: "Cabinet multi colour",
+    multiColourHint:
+      "Laminate swatches board pe drag karein. Size aur order change — sirf cabinets.",
+    multiColourDone: "Done — kitchen wapas",
+    multiColourClear: "Board clear",
+    multiColourForward: "Uper lao",
+    multiColourBack: "Peeche bhejo",
+    multiColourRemove: "Hatao",
+    multiColourDragSwatch: "Swatch tap ya board pe drag karein",
+    uploadTexture: "File upload",
+    uploadTextureOk: "Texture upload ho gayi — local path set.",
+    uploadTextureFail: "Texture upload fail.",
 
     chooseWoodColour: "Apna wood colour choose karein",
     choosePaintColour: "Paint colour choose karein",
@@ -815,10 +846,13 @@ export const translations = {
     wizardReview: "Review",
     wizardSaveAnyway: "Phir bhi save karein",
     wizardGoBackMap: "Mapping par wapas jayein",
-    wizardZoneChecklistDesc: "Photopea mein kya kya cut kiya? Sirf checked zones map honge.",
-    wizardZoneChecklist: "Cut-out checklist",
+    wizardZoneChecklistDesc:
+      "Is kitchen mein kya cut hai? Pehle checklist tick karein — sirf ye zones mapping mein aayenge (floor, walls, upper/lower cabinets, island…).",
+    wizardZoneChecklist: "Cut-out checklist — pehle ye poochho",
+    wizardRegionLegend: "Har transparent region — label choose karein",
     wizardRegionAssign: "Region assign",
-    wizardTouchingRegionsHint: "Tip: touching cabinets ke darmiyan Photopea mein 1–2px gap rakhein taake har box alag region ho.",
+    wizardTouchingRegionsHint:
+      "Agar do cabinets ek blob dikhein to Photopea mein unke darmiyan 1–2 px opaque gap rakhein, warna flood-fill unhe ek region manta hai.",
 
     zoneCeiling: "Ceiling",
     zoneWallLeft: "Left wall",
