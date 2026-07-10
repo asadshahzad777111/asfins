@@ -17,10 +17,12 @@
     "sync-zrk": "node scripts/sync-zrk-mdf.mjs",
     "seed-mongo": "node scripts/seed-mongo.mjs",
     "prepare-zrk": "node scripts/prepare-zrk-local.mjs",
+    "prepare-patex": "node scripts/prepare-patex-local.mjs",
     "upload-r2": "node scripts/upload-r2.mjs",
     "import-zrk": "node scripts/import-zrk-batch.mjs",
     "scrape-zrk-mdf": "node scripts/scrape-zrk-mdf.mjs",
     "scrape-zrk-mdf:import": "node scripts/scrape-zrk-mdf.mjs --import",
+    "resolve-patex": "node scripts/resolve-patex-images.mjs",
     "analyze-mask": "node scripts/analyze-mask.mjs"
   },
   "dependencies": {

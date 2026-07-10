@@ -4,6 +4,11 @@ export const BRANDS = {
     logo: "https://zrkgroup.com/logo/logo.png",
     alt: "ZRK Group",
   },
+  patex: {
+    name: "Patex",
+    logo: "/brands/patex/logo.webp",
+    alt: "Patex",
+  },
 } as const;
 
 export type BrandKey = keyof typeof BRANDS;
@@ -13,6 +18,9 @@ export function getBrandLogo(brandName?: string): { src: string; alt: string } |
   const normalized = brandName.toLowerCase();
   if (normalized.includes("zrk")) {
     return { src: BRANDS.zrk.logo, alt: BRANDS.zrk.alt };
+  }
+  if (normalized.includes("patex")) {
+    return { src: BRANDS.patex.logo, alt: BRANDS.patex.alt };
   }
   const key = normalized as BrandKey;
   const brand = BRANDS[key];
