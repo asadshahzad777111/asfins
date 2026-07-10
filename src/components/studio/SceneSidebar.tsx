@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { SceneThumbnail } from "@/components/SceneThumbnail";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import type { SceneRecord } from "@/lib/scenes/types";
@@ -10,6 +11,8 @@ interface SceneSidebarProps {
   activeId: string;
   categoryLabel: string;
   linkPrefix?: string;
+  onNavigate?: () => void;
+  className?: string;
 }
 
 export function SceneSidebar({
@@ -17,11 +20,15 @@ export function SceneSidebar({
   activeId,
   categoryLabel,
   linkPrefix = "/configurator",
+  onNavigate,
+  className = "",
 }: SceneSidebarProps) {
   const { t } = useLanguage();
 
   return (
-    <aside className="studio-sidebar flex w-[220px] shrink-0 flex-col border-r border-divider bg-[#F5F0E8]">
+    <aside
+      className={`studio-sidebar flex h-full w-[220px] shrink-0 flex-col border-r border-divider bg-[#F5F0E8] ${className}`}
+    >
       <div className="border-b border-divider px-4 py-3">
         <p className="studio-panel-label">{t("selectRoom")}</p>
         <p className="font-display mt-0.5 text-sm text-charcoal">{categoryLabel}</p>
@@ -32,10 +39,16 @@ export function SceneSidebar({
           {scenes.map((scene, index) => {
             const active = scene.id === activeId;
             return (
-              <li key={scene.id}>
+              <motion.li
+                key={scene.id}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: Math.min(index * 0.04, 0.28), duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              >
                 <Link
                   href={`${linkPrefix}/${scene.id}`}
                   prefetch
+                  onClick={onNavigate}
                   className={`studio-scene-item group relative flex items-center gap-2.5 rounded-sm p-2 transition-all ${
                     active
                       ? "bg-white shadow-sm ring-2 ring-brass"
@@ -69,7 +82,7 @@ export function SceneSidebar({
                     </p>
                   </div>
                 </Link>
-              </li>
+              </motion.li>
             );
           })}
         </ul>

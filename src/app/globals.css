@@ -519,6 +519,17 @@ body {
   color: #2d8a4e;
 }
 
+/* Studio header — ink atelier bar with soft brass sheen */
+.studio-header__sheen {
+  background:
+    radial-gradient(ellipse 60% 120% at 12% 50%, rgba(184, 137, 58, 0.14), transparent 55%),
+    linear-gradient(90deg, transparent, rgba(250, 248, 244, 0.03) 40%, transparent 70%);
+}
+
+.studio-rail-toggle {
+  writing-mode: horizontal-tb;
+}
+
 .studio-preview-frame {
   position: relative;
 }

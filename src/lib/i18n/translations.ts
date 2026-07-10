@@ -84,6 +84,8 @@ export const translations = {
     fullscreenShort: "Full",
     prevScene: "Previous scene",
     nextScene: "Next scene",
+    showKitchenList: "Show kitchen list",
+    hideKitchenList: "Hide kitchen list",
 
     // Gallery category
     allRooms: "← All rooms",
@@ -588,6 +590,8 @@ export const translations = {
     fullscreenShort: "Full",
     prevScene: "Pichli scene",
     nextScene: "Agli scene",
+    showKitchenList: "Kitchen list dikhao",
+    hideKitchenList: "Kitchen list chupao",
 
     allRooms: "← Tamam rooms",
     choosePhoto: "Photo tap karein aur wood colour choose karein",

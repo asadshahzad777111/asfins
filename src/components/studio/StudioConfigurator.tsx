@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useConfigurator } from "@/hooks/useConfigurator";
@@ -18,25 +18,8 @@ import { roomLabel } from "@/lib/i18n/translations";
 import type { SceneConfig, ZonePalette } from "@/lib/scenes/types";
 import type { SceneRecord } from "@/lib/scenes/types";
 import { ApplyingOverlay } from "@/components/ApplyingOverlay";
-import { CabinetMultiColourEditor } from "@/components/studio/CabinetMultiColourEditor";
-import { ZoneSplitOverlay } from "@/components/studio/ZoneSplitOverlay";
 import type { Catalog, CatalogSwatch } from "@/lib/catalogs/types";
-import type { FinishMode, LightingMode, ZoneBoundingBox } from "@/lib/canvas/engine";
-import {
-  getCabinetMultiColourZones,
-  sceneHasCabinetMultiColour,
-  type ColourBlock,
-} from "@/lib/canvas/colour-board";
-import {
-  addSplitSegment,
-  autoOrientation,
-  createInitialSplit,
-  isActiveSplit,
-  moveSplitDivider,
-  removeSplitSegment,
-  updateSplitSegment,
-  MAX_SPLIT_SEGMENTS,
-} from "@/lib/canvas/colour-split";
+import type { FinishMode, LightingMode } from "@/lib/canvas/engine";
 
 interface StudioConfiguratorProps {
   scene: SceneConfig;
@@ -44,6 +27,40 @@ interface StudioConfiguratorProps {
   categoryScenes: SceneRecord[];
   catalogs: Catalog[];
   sceneLinkPrefix?: string;
+}
+
+const RAIL_STORAGE_KEY = "studio-kitchen-rail-open";
+const SIDEBAR_WIDTH = 220;
+const ease = [0.22, 1, 0.36, 1] as const;
+const springRail = { type: "spring" as const, stiffness: 380, damping: 34 };
+
+const railListeners = new Set<() => void>();
+
+function readRailPreference(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(RAIL_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeRailPreference(open: boolean) {
+  try {
+    window.localStorage.setItem(RAIL_STORAGE_KEY, open ? "1" : "0");
+  } catch {
+    /* ignore quota / private mode */
+  }
+  railListeners.forEach((listener) => listener());
+}
+
+function subscribeRail(onStoreChange: () => void) {
+  railListeners.add(onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    railListeners.delete(onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
 }
 
 function firstWoodZoneId(scene: SceneConfig): string {
@@ -78,29 +95,16 @@ export function StudioConfigurator({
   const router = useRouter();
   const previewRef = useRef<HTMLDivElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileScenesOpen, setMobileScenesOpen] = useState(false);
+  const kitchenRailOpen = useSyncExternalStore(
+    subscribeRail,
+    readRailPreference,
+    () => false
+  );
   const [activeZone, setActiveZone] = useState(() => firstWoodZoneId(scene));
   const [selectedCatalogId, setSelectedCatalogId] = useState(() =>
     defaultCatalogForPalette(catalogs, "wood")
   );
-  const [studioMode, setStudioMode] = useState<"kitchen" | "multiColour">("kitchen");
-  const [draftBoard, setDraftBoard] = useState<ColourBlock[]>([]);
-  const [splitBox, setSplitBox] = useState<ZoneBoundingBox | null>(null);
-  const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
-  const [splitDragging, setSplitDragging] = useState(false);
-
-  const canMultiColour = sceneHasCabinetMultiColour(scene.zones);
-  const cabinetZones = useMemo(
-    () => getCabinetMultiColourZones(scene.zones),
-    [scene.zones]
-  );
-  const clipMaskUrls = useMemo(
-    () => cabinetZones.map((z) => z.maskPath),
-    [cabinetZones]
-  );
-  const cutoutUrls = useMemo(() => {
-    const dir = scene.basePhoto.replace(/\/[^/]+$/, "");
-    return [`${dir}/cutout.png`, `${dir}/master-cutout.png`];
-  }, [scene.basePhoto]);
 
   const sceneCatalogs = useMemo(
     () =>
@@ -143,17 +147,11 @@ export function StudioConfigurator({
     state,
     setZoneFromSwatch,
     setZoneColors,
-    setCabinetColourBoard,
-    setZoneSplit,
-    getZoneBoundingBox,
     setFinish,
     setLighting,
     exportPng,
     resetColors,
   } = useConfigurator(scene);
-
-  const activeSplit = state.zoneSplits[activeZone];
-  const hasActiveSplit = isActiveSplit(activeSplit);
 
   const allSwatches = sceneCatalogs.flatMap((c) => c.swatches);
   const activeHex = state.zoneColors[activeZone] ?? "#3D4555";
@@ -192,111 +190,19 @@ export function StudioConfigurator({
 
   const categoryLabel = roomLabel(lang, sceneRecord.category);
 
-  const openMultiColour = useCallback(() => {
-    setDraftBoard(state.cabinetColourBoard.map((b) => ({ ...b })));
-    setStudioMode("multiColour");
-  }, [state.cabinetColourBoard]);
-
-  const finishMultiColour = useCallback(() => {
-    setCabinetColourBoard(draftBoard);
-    setStudioMode("kitchen");
-  }, [draftBoard, setCabinetColourBoard]);
-
-  // Reset segment selection whenever the active zone changes (each zone has
-  // its own split) — React's documented "adjust state when a prop changes"
-  // pattern (state tracker, not a ref, so it's safe during render).
-  const [prevActiveZone, setPrevActiveZone] = useState(activeZone);
-  if (prevActiveZone !== activeZone) {
-    setPrevActiveZone(activeZone);
-    setActiveSegmentId(null);
-  }
-
-  // Zone bounding box only needs to be known once split mode is active for this zone
-  // (positions the draggable divider overlay over the live preview) — this reads from
-  // the imperative renderer/canvas, a genuine external system, so an effect is correct here.
-  useEffect(() => {
-    if (!ready || !hasActiveSplit) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSplitBox(null);
-      return;
-    }
-    setSplitBox(getZoneBoundingBox(activeZone));
-  }, [ready, hasActiveSplit, activeZone, getZoneBoundingBox]);
-
-  const startSplit = useCallback(() => {
-    const box = getZoneBoundingBox(activeZone);
-    const initial = createInitialSplit(activeHex);
-    let next = addSplitSegment(initial, "#C9C2B3");
-    if (box) next = { ...next, orientation: autoOrientation(box) };
-    setZoneSplit(activeZone, next);
-    setSplitBox(box);
-    setActiveSegmentId(next.segments[1]?.id ?? null);
-  }, [activeZone, activeHex, getZoneBoundingBox, setZoneSplit]);
-
-  const addSegment = useCallback(() => {
-    if (!activeSplit) return;
-    const next = addSplitSegment(activeSplit, "#C9C2B3");
-    setZoneSplit(activeZone, next);
-    const added = next.segments[next.segments.length - 1];
-    if (added && added.id !== activeSplit.segments[activeSplit.segments.length - 1]?.id) {
-      setActiveSegmentId(added.id);
-    }
-  }, [activeSplit, activeZone, setZoneSplit]);
-
-  const removeSegment = useCallback(
-    (id: string) => {
-      if (!activeSplit) return;
-      const index = activeSplit.segments.findIndex((s) => s.id === id);
-      if (index < 0) return;
-      if (activeSplit.segments.length <= 2) {
-        setZoneSplit(activeZone, undefined);
-        setActiveSegmentId(null);
-        return;
-      }
-      setZoneSplit(activeZone, removeSplitSegment(activeSplit, index));
-      if (activeSegmentId === id) setActiveSegmentId(null);
-    },
-    [activeSplit, activeSegmentId, activeZone, setZoneSplit]
-  );
-
-  const clearSplit = useCallback(() => {
-    setZoneSplit(activeZone, undefined);
-    setActiveSegmentId(null);
-  }, [activeZone, setZoneSplit]);
-
-  const handleDividerDrag = useCallback(
-    (index: number, fraction: number) => {
-      if (!activeSplit) return;
-      setZoneSplit(activeZone, moveSplitDivider(activeSplit, index, fraction));
-    },
-    [activeSplit, activeZone, setZoneSplit]
-  );
-
-  const handleSegmentPick = useCallback(
-    (swatch: CatalogSwatch) => {
-      if (!activeSplit || !activeSegmentId) return;
-      setZoneSplit(
-        activeZone,
-        updateSplitSegment(activeSplit, activeSegmentId, {
-          hex: swatch.hex,
-          imageUrl: swatch.imageUrl,
-        })
-      );
-    },
-    [activeSplit, activeSegmentId, activeZone, setZoneSplit]
-  );
-
   const handleColorPick = useCallback(
     (swatch: CatalogSwatch) => {
-      if (hasActiveSplit && activeSegmentId) {
-        handleSegmentPick(swatch);
-      } else if (activeZone) {
+      if (activeZone) {
         void setZoneFromSwatch(activeZone, swatch);
       }
       setMobileOpen(false);
     },
-    [activeZone, setZoneFromSwatch, hasActiveSplit, activeSegmentId, handleSegmentPick]
+    [activeZone, setZoneFromSwatch]
   );
+
+  const toggleKitchenRail = useCallback(() => {
+    writeRailPreference(!kitchenRailOpen);
+  }, [kitchenRailOpen]);
 
   const lookPanel = (
     <div className="space-y-4 p-4">
@@ -339,125 +245,6 @@ export function StudioConfigurator({
     </div>
   );
 
-  const splitPanel = (
-    <div className="border-b border-divider p-3">
-      <p className="font-mono-data text-[9px] uppercase tracking-[0.2em] text-muted">
-        {t("multiColourSectionTitle")}
-      </p>
-      <p className="mt-1 font-mono-data text-[9px] leading-relaxed text-muted">
-        {t("multiColourSectionHint")}
-      </p>
-
-      <div className="mt-3 space-y-2">
-        <div className="rounded-sm border border-brass/40 bg-brass/5 p-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <p className="font-mono-data text-[9px] uppercase tracking-wider text-brass">
-              1 · {t("splitStart")}
-            </p>
-            {hasActiveSplit && (
-              <button
-                type="button"
-                onClick={clearSplit}
-                className="font-mono-data text-[9px] uppercase tracking-wider text-brass hover:underline"
-              >
-                {t("splitClear")}
-              </button>
-            )}
-          </div>
-          <p className="mt-1 font-mono-data text-[9px] leading-relaxed text-muted">
-            {t("splitOptionHint")}
-          </p>
-
-          {!hasActiveSplit ? (
-            <button
-              type="button"
-              disabled={!ready}
-              onClick={startSplit}
-              className="mt-2 w-full border border-brass/50 bg-white py-2.5 font-mono-data text-[10px] uppercase tracking-wider text-brass transition-colors hover:bg-brass/10 disabled:opacity-40"
-            >
-              {t("splitStartShort")}
-            </button>
-          ) : (
-            <div className="mt-2 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                {activeSplit!.segments.map((seg, i) => (
-                  <button
-                    key={seg.id}
-                    type="button"
-                    onClick={() => setActiveSegmentId(seg.id)}
-                    title={`${t("splitSegment")} ${i + 1}`}
-                    className={`relative h-11 w-11 rounded-sm border-2 transition-colors ${
-                      activeSegmentId === seg.id ? "border-brass shadow-md" : "border-divider"
-                    }`}
-                    style={{
-                      backgroundColor: seg.hex,
-                      backgroundImage: seg.imageUrl ? `url(${seg.imageUrl})` : undefined,
-                      backgroundSize: "cover",
-                    }}
-                  >
-                    <span className="absolute -bottom-1 -left-1 flex h-4 w-4 items-center justify-center rounded-full bg-charcoal font-mono-data text-[8px] text-white">
-                      {i + 1}
-                    </span>
-                    <span
-                      role="button"
-                      aria-label={t("splitRemoveColour")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeSegment(seg.id);
-                      }}
-                      className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-charcoal text-[9px] leading-none text-white hover:bg-brass"
-                    >
-                      ×
-                    </span>
-                  </button>
-                ))}
-                {activeSplit!.segments.length < MAX_SPLIT_SEGMENTS && (
-                  <button
-                    type="button"
-                    onClick={addSegment}
-                    aria-label={t("splitAddColour")}
-                    className="flex h-11 w-11 items-center justify-center rounded-sm border border-dashed border-divider text-muted transition-colors hover:border-brass hover:text-brass"
-                  >
-                    +
-                  </button>
-                )}
-              </div>
-              <p className="font-mono-data text-[9px] leading-relaxed text-muted">
-                {activeSegmentId
-                  ? t("splitPickingFor", {
-                      n: 1 + activeSplit!.segments.findIndex((s) => s.id === activeSegmentId),
-                    })
-                  : t("splitHint")}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {canMultiColour && (
-          <div className="rounded-sm border border-dashed border-divider p-2.5">
-            <p className="font-mono-data text-[9px] uppercase tracking-wider text-muted">
-              2 · {t("multiColourAdvancedButton")}
-            </p>
-            <p className="mt-1 font-mono-data text-[9px] leading-relaxed text-muted">
-              {t("boardOptionHint")}
-            </p>
-            <button
-              type="button"
-              disabled={!ready}
-              onClick={openMultiColour}
-              className="mt-2 w-full border border-divider py-2.5 font-mono-data text-[9px] uppercase tracking-[0.14em] text-muted transition-colors hover:border-brass hover:text-brass disabled:opacity-40"
-            >
-              {t("multiColourAdvancedButton")}
-              {state.cabinetColourBoard.length > 0
-                ? ` (${state.cabinetColourBoard.length})`
-                : ""}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
   const catalogPanel = (
     <>
       <StudioZonePicker
@@ -465,7 +252,6 @@ export function StudioConfigurator({
         activeZone={activeZone}
         onSelect={setActiveZone}
       />
-      {splitPanel}
       {showDoubleShade && (
         <div className="border-b border-divider p-3">
           <DoubleShadePicker
@@ -490,24 +276,7 @@ export function StudioConfigurator({
   );
 
   return (
-    <div className="studio-configurator flex h-[calc(100vh-3rem)] flex-col bg-base">
-      {studioMode === "multiColour" && (
-        <CabinetMultiColourEditor
-          sceneWidth={scene.width}
-          sceneHeight={scene.height}
-          basePhotoUrl={scene.basePhoto}
-          cutoutUrls={cutoutUrls}
-          clipMaskUrls={clipMaskUrls}
-          blocks={draftBoard}
-          onChange={setDraftBoard}
-          catalogs={sceneCatalogs}
-          onDone={finishMultiColour}
-          onClear={() => {
-            setDraftBoard([]);
-            setCabinetColourBoard([]);
-          }}
-        />
-      )}
+    <div className="studio-configurator flex h-[calc(100vh-3.25rem)] flex-col bg-base">
       <StudioToolbar
         sceneName={scene.name}
         zoneLabel={activeZoneConfig?.label ?? ""}
@@ -523,53 +292,82 @@ export function StudioConfigurator({
         hasNext={hasNext}
       />
 
-      <div className="flex min-h-0 flex-1">
-        <div className="hidden lg:block">
-          <SceneSidebar
-            scenes={categoryScenes}
-            activeId={scene.id}
-            categoryLabel={categoryLabel}
-            linkPrefix={sceneLinkPrefix}
-          />
+      <div className="relative flex min-h-0 flex-1">
+        {/* Desktop collapsible kitchen rail — closed by default; arrow opens it */}
+        <div className="hidden h-full shrink-0 lg:flex">
+          <AnimatePresence initial={false}>
+            {kitchenRailOpen && (
+              <motion.div
+                key="kitchen-rail"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: SIDEBAR_WIDTH, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={springRail}
+                className="h-full overflow-hidden"
+              >
+                <SceneSidebar
+                  scenes={categoryScenes}
+                  activeId={scene.id}
+                  categoryLabel={categoryLabel}
+                  linkPrefix={sceneLinkPrefix}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            type="button"
+            onClick={toggleKitchenRail}
+            aria-expanded={kitchenRailOpen}
+            aria-label={kitchenRailOpen ? t("hideKitchenList") : t("showKitchenList")}
+            title={kitchenRailOpen ? t("hideKitchenList") : t("showKitchenList")}
+            className="studio-rail-toggle group relative z-20 flex h-full w-7 shrink-0 items-center justify-center border-r border-divider bg-marble text-muted transition-colors hover:border-brass hover:bg-brass/5 hover:text-brass"
+          >
+            <motion.span
+              animate={{ rotate: kitchenRailOpen ? 0 : 180 }}
+              transition={{ type: "spring", stiffness: 400, damping: 28 }}
+              className="flex items-center justify-center"
+            >
+              <ChevronIcon />
+            </motion.span>
+          </button>
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-center gap-3 border-b border-divider bg-base px-4 py-2">
-            <p className="studio-panel-label">{t("livePreview")}</p>
-            {canMultiColour && (
+          <div className="flex items-center justify-between gap-3 border-b border-divider bg-base/80 px-4 py-2 backdrop-blur-sm">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                disabled={!ready}
-                onClick={openMultiColour}
-                className="rounded-sm border border-divider px-2.5 py-1 font-mono-data text-[9px] uppercase tracking-wider text-muted hover:border-brass hover:text-brass disabled:opacity-40"
+                onClick={() => setMobileScenesOpen(true)}
+                className="studio-rail-toggle-mobile flex h-8 w-8 items-center justify-center border border-divider text-muted transition-colors hover:border-brass hover:text-brass lg:hidden"
+                aria-label={t("showKitchenList")}
               >
-                {t("multiColourAdvancedButton")}
+                <ChevronIcon />
               </button>
-            )}
+              <p className="studio-panel-label">{t("livePreview")}</p>
+            </div>
+            <motion.span
+              key={scene.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease }}
+              className="truncate font-mono-data text-[9px] uppercase tracking-wider text-muted"
+            >
+              {scene.name}
+            </motion.span>
           </div>
 
           <div className="flex flex-1 items-center justify-center overflow-hidden p-3 sm:p-5">
             <motion.div
               ref={previewRef}
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-              className="studio-preview-frame relative w-full max-w-4xl overflow-hidden border border-divider bg-marble shadow-[0_20px_60px_rgba(28,20,16,0.1)]"
+              key={scene.id}
+              initial={{ opacity: 0, scale: 0.97, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.5, ease }}
+              className="studio-preview-frame relative w-full max-w-5xl overflow-hidden border border-divider bg-marble shadow-[0_20px_60px_rgba(28,20,16,0.1)]"
             >
               <canvas ref={canvasRef} className="block h-auto w-full" />
-              {hasActiveSplit && splitBox && (
-                <ZoneSplitOverlay
-                  containerRef={previewRef}
-                  sceneWidth={scene.width}
-                  sceneHeight={scene.height}
-                  box={splitBox}
-                  split={activeSplit!}
-                  onDragDivider={handleDividerDrag}
-                  onDragStart={() => setSplitDragging(true)}
-                  onDragEnd={() => setSplitDragging(false)}
-                />
-              )}
-              <ApplyingOverlay show={applying && !splitDragging} />
+              <ApplyingOverlay show={applying} />
               {!ready && !error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-base/90">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-brass border-t-transparent" />
@@ -586,6 +384,13 @@ export function StudioConfigurator({
           </div>
 
           <div className="flex gap-2 border-t border-divider bg-marble p-2 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileScenesOpen(true)}
+              className="border border-divider px-3 py-3 font-mono-data text-[10px] uppercase tracking-wider text-muted"
+            >
+              {t("scenePicker")}
+            </button>
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
@@ -608,11 +413,17 @@ export function StudioConfigurator({
           </div>
         </div>
 
-        <aside className="studio-catalog hidden w-[280px] shrink-0 flex-col overflow-y-auto border-l border-divider bg-marble lg:flex">
+        <motion.aside
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.45, delay: 0.1, ease }}
+          className="studio-catalog hidden w-[280px] shrink-0 flex-col overflow-y-auto border-l border-divider bg-marble lg:flex"
+        >
           {catalogPanel}
-        </aside>
+        </motion.aside>
       </div>
 
+      {/* Mobile material sheet */}
       <AnimatePresence>
         {mobileOpen && (
           <>
@@ -642,6 +453,66 @@ export function StudioConfigurator({
           </>
         )}
       </AnimatePresence>
+
+      {/* Mobile kitchen scenes sheet */}
+      <AnimatePresence>
+        {mobileScenesOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-walnut/40 lg:hidden"
+              onClick={() => setMobileScenesOpen(false)}
+            />
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 340 }}
+              className="fixed bottom-0 left-0 top-0 z-50 w-[min(100%,280px)] overflow-hidden bg-[#F5F0E8] shadow-2xl lg:hidden"
+            >
+              <div className="flex h-full flex-col">
+                <div className="flex items-center justify-between border-b border-divider px-3 py-2.5">
+                  <span className="font-display text-sm text-charcoal">{t("selectRoom")}</span>
+                  <button
+                    type="button"
+                    onClick={() => setMobileScenesOpen(false)}
+                    className="flex h-8 w-8 items-center justify-center text-muted"
+                    aria-label={t("hideKitchenList")}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-hidden">
+                  <SceneSidebar
+                    scenes={categoryScenes}
+                    activeId={scene.id}
+                    categoryLabel={categoryLabel}
+                    linkPrefix={sceneLinkPrefix}
+                    onNavigate={() => setMobileScenesOpen(false)}
+                    className="!w-full border-r-0"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+      <path
+        d="M7.5 2.5L4 6l3.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

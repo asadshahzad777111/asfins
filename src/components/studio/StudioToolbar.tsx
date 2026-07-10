@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 interface StudioToolbarProps {
@@ -16,6 +17,8 @@ interface StudioToolbarProps {
   hasPrev?: boolean;
   hasNext?: boolean;
 }
+
+const ease = [0.22, 1, 0.36, 1] as const;
 
 export function StudioToolbar({
   sceneName,
@@ -34,7 +37,12 @@ export function StudioToolbar({
   const { t } = useLanguage();
 
   return (
-    <div className="studio-toolbar flex flex-wrap items-center gap-2 border-b border-divider bg-marble px-4 py-2.5">
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease }}
+      className="studio-toolbar flex flex-wrap items-center gap-2 border-b border-divider bg-marble/95 px-4 py-2.5 backdrop-blur-sm"
+    >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {(hasPrev || hasNext) && (
           <div className="flex items-center gap-1">
@@ -59,7 +67,7 @@ export function StudioToolbar({
           </div>
         )}
         <div className="min-w-0">
-          <p className="truncate font-display text-sm text-charcoal">{sceneName}</p>
+          <p className="truncate font-display text-sm text-charcoal sm:text-base">{sceneName}</p>
           <p className="truncate font-mono-data text-[9px] uppercase tracking-wider text-muted">
             {zoneLabel}
             {materialName ? ` · ${materialName}` : ""}
@@ -68,9 +76,15 @@ export function StudioToolbar({
       </div>
 
       {materialCode && (
-        <span className="hidden border border-brass/30 bg-brass/10 px-2.5 py-1 font-mono-data text-xs text-brass sm:inline">
+        <motion.span
+          key={materialCode}
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.25 }}
+          className="hidden border border-brass/30 bg-brass/10 px-2.5 py-1 font-mono-data text-xs text-brass sm:inline"
+        >
           {materialCode}
-        </span>
+        </motion.span>
       )}
 
       <div className="flex items-center gap-1.5">
@@ -104,7 +118,7 @@ export function StudioToolbar({
           <span className="hidden sm:inline">{t("fullscreenShort")}</span>
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
