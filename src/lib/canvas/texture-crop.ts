@@ -10,7 +10,10 @@ export type TextureCropRect = {
   sh: number;
 };
 
-/** True for main Patex sheet photos (not Patex Elegance PDF tiles). */
+/**
+ * True for main Patex sheet photos (logo + NEW ARRIVAL chrome).
+ * Patex Elegance PDF tiles are already clean edge-to-edge crops — no gallery crop.
+ */
 export function isPatexProductTextureUrl(url: string): boolean {
   try {
     const decoded = decodeURIComponent(url);
