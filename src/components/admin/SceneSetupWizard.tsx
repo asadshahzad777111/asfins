@@ -10,8 +10,12 @@ import type { Catalog } from "@/lib/catalogs/types";
 import { catalogsForPalette } from "@/lib/catalogs/materials";
 import type { RoomCategory, SceneRecord, ZonePalette } from "@/lib/scenes/types";
 import {
+  buildDefaultStudioTargets,
   getSingleInstanceZoneQuestions,
   getZoneQuestions,
+  mergeAssignmentsToStudioZones,
+  resolveStudioZoneMeta,
+  studioTargetOptionsForSlots,
   wizardProgress,
   type WizardFlow,
   type WizardStep,
@@ -135,7 +139,7 @@ export function SceneSetupWizard({
       ? {
           file: null,
           url: "",
-          preview: `/scenes/${existingScene.id}/master-cutout.png`,
+          preview: existingScene.basePhoto.replace(/\/[^/]+$/, "/master-cutout.png"),
           mode: "upload",
         }
       : emptyImageSource()
@@ -143,6 +147,8 @@ export function SceneSetupWizard({
   const [parsed, setParsed] = useState<ParsedCutout | null>(null);
   const [assignments, setAssignments] = useState<Record<string, number[]>>({});
   const [assignmentsHydrated, setAssignmentsHydrated] = useState(false);
+  /** Advanced review overrides: mapping-slot id → customer-facing Studio zone id. */
+  const [studioTargetOverrides, setStudioTargetOverrides] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [enabledZones, setEnabledZones] = useState<Set<string>>(() =>
     existingScene ? new Set(existingScene.zones.map((z) => z.id)) : defaultZonesForCategory(category)
@@ -179,6 +185,7 @@ export function SceneSetupWizard({
     setEnabledZones(defaultZonesForCategory(category));
     setSkipped(new Set());
     setAssignments({});
+    setStudioTargetOverrides({});
     setAssignmentsHydrated(true);
     setQuestionIndex(0);
     setSimpleRows(buildInitialSimpleZoneRows(category as RoomCategory, undefined, catalogs));
@@ -190,6 +197,7 @@ export function SceneSetupWizard({
   // documented pattern — so we don't trip react-hooks/set-state-in-effect.
   if (parsed && !assignmentsHydrated && existingScene?.regionMappings) {
     setAssignments(existingScene.regionMappings);
+    setStudioTargetOverrides({});
     setAssignmentsHydrated(true);
   }
 
@@ -203,6 +211,25 @@ export function SceneSetupWizard({
   );
   const currentQuestion = step === "mapping" ? activeQuestions[questionIndex] : null;
   const progress = wizardProgress(step, questionIndex, questions.length, flow);
+
+  const studioTargets = useMemo(() => {
+    const defaults = buildDefaultStudioTargets(assignments);
+    const out = { ...defaults };
+    for (const [slotId, target] of Object.entries(studioTargetOverrides)) {
+      if (slotId in assignments) out[slotId] = target;
+    }
+    return out;
+  }, [assignments, studioTargetOverrides]);
+
+  const mergedStudioAssignments = useMemo(
+    () => mergeAssignmentsToStudioZones(assignments, studioTargets),
+    [assignments, studioTargets]
+  );
+
+  const studioTargetOptions = useMemo(
+    () => studioTargetOptionsForSlots(Object.keys(assignments), category),
+    [assignments, category]
+  );
 
   const regionToZone = useMemo(() => {
     const map: Record<number, string> = {};
@@ -266,6 +293,7 @@ export function SceneSetupWizard({
       } else {
         setParsed(result);
         setAssignments({});
+        setStudioTargetOverrides({});
         setSkipped(new Set());
       }
     } catch {
@@ -707,6 +735,14 @@ export function SceneSetupWizard({
       return;
     }
 
+    // Merge left/centre/right (etc.) into shared Studio zone ids → one union mask each.
+    const studioAssignments = mergeAssignmentsToStudioZones(assignments, studioTargets);
+    const studioZones = Object.entries(studioAssignments).filter(([, ids]) => ids.length > 0);
+    if (studioZones.length === 0) {
+      setMessage({ type: "err", text: t("wizardNoZonesMapped") });
+      return;
+    }
+
     setLoading(true);
     setLoadingLabel("wizardSavingCompressing");
     setMessage({ type: "warn", text: t("wizardSavingCompressing") });
@@ -727,14 +763,14 @@ export function SceneSetupWizard({
       appendImageSource(form, "basePhoto", compressedBase);
       appendImageSource(form, "masterCutout", compressedCutout);
       form.append("catalogIds", selectedCatalogs.join(","));
-      form.append("regionMappings", JSON.stringify(assignments));
-      form.append("zoneCount", String(mappedZones.length));
+      form.append("regionMappings", JSON.stringify(studioAssignments));
+      form.append("zoneCount", String(studioZones.length));
 
-      mappedZones.forEach(([zoneId], i) => {
-        const q = questions.find((q) => q.id === zoneId);
+      studioZones.forEach(([zoneId], i) => {
+        const meta = resolveStudioZoneMeta(zoneId, category);
         form.append(`zone_${i}_id`, zoneId);
-        form.append(`zone_${i}_label`, q ? t(q.labelKey as TranslationKey) : zoneId);
-        form.append(`zone_${i}_palette`, (q?.palette ?? "wood") as ZonePalette);
+        form.append(`zone_${i}_label`, t(meta.labelKey as TranslationKey));
+        form.append(`zone_${i}_palette`, meta.palette as ZonePalette);
       });
 
       const totalBytes =
@@ -1245,29 +1281,87 @@ export function SceneSetupWizard({
         {step === "review" && flow === "advanced" && (
           <div className="wizard-step space-y-4">
             <p className="wizard-step-desc">{t("wizardReviewDesc")}</p>
+            <p className="text-sm text-[var(--muted)]">{t("wizardMergeCabinetsHint")}</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="wp-button wp-button--secondary wp-button--small"
+                onClick={() => setStudioTargetOverrides({})}
+              >
+                {t("wizardMergeAllCabinets")}
+              </button>
+              <span className="text-sm self-center text-[var(--muted)]">
+                {t("wizardStudioPreview", {
+                  count: Object.keys(mergedStudioAssignments).length,
+                })}
+              </span>
+            </div>
             <div className="wp-table-wrap">
               <table className="wp-table">
                 <thead>
                   <tr>
-                    <th>{t("zoneNameLabel")}</th>
-                    <th>{t("category")}</th>
+                    <th>{t("wizardTaggedAs")}</th>
+                    <th>{t("wizardStudioControl")}</th>
                     <th>{t("wizardRegions")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(assignments).map(([zoneId, regionIds]) => {
-                    const q = questions.find((q) => q.id === zoneId);
-                    return (
-                      <tr key={zoneId}>
-                        <td>{q ? t(q.labelKey as TranslationKey) : zoneId}</td>
-                        <td>{q ? paletteLabel(q.palette) : "—"}</td>
-                        <td>{regionIds.map((id) => `#${id + 1}`).join(", ")}</td>
-                      </tr>
-                    );
-                  })}
+                  {Object.entries(assignments)
+                    .filter(([, regionIds]) => regionIds.length > 0)
+                    .map(([zoneId, regionIds]) => {
+                      const q = questions.find((qq) => qq.id === zoneId);
+                      const targetId = studioTargets[zoneId] ?? zoneId;
+                      return (
+                        <tr key={zoneId}>
+                          <td>{q ? t(q.labelKey as TranslationKey) : zoneId}</td>
+                          <td>
+                            <select
+                              className="wp-input"
+                              value={targetId}
+                              onChange={(e) =>
+                                setStudioTargetOverrides((prev) => ({
+                                  ...prev,
+                                  [zoneId]: e.target.value,
+                                }))
+                              }
+                            >
+                              {studioTargetOptions.map((opt) => (
+                                <option key={opt.id} value={opt.id}>
+                                  {t(opt.labelKey as TranslationKey)}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td>{regionIds.map((id) => `#${id + 1}`).join(", ")}</td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
+            {Object.keys(mergedStudioAssignments).length > 0 && (
+              <div className="wp-table-wrap">
+                <table className="wp-table">
+                  <thead>
+                    <tr>
+                      <th>{t("wizardStudioControl")}</th>
+                      <th>{t("wizardRegions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(mergedStudioAssignments).map(([zoneId, regionIds]) => {
+                      const meta = resolveStudioZoneMeta(zoneId, category);
+                      return (
+                        <tr key={zoneId}>
+                          <td>{t(meta.labelKey as TranslationKey)}</td>
+                          <td>{regionIds.map((id) => `#${id + 1}`).join(", ")}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
             {skipped.size > 0 && (
               <div className="wizard-skipped">
                 <p className="wp-menu-heading" style={{ padding: 0 }}>
@@ -1275,7 +1369,7 @@ export function SceneSetupWizard({
                 </p>
                 <div className="wizard-skipped-list">
                   {Array.from(skipped).map((zoneId) => {
-                    const q = questions.find((q) => q.id === zoneId);
+                    const q = questions.find((qq) => qq.id === zoneId);
                     return (
                       <button
                         key={zoneId}

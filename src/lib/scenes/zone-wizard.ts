@@ -69,6 +69,149 @@ export type WizardStep = "info" | "cutout" | "zones" | "mapping" | "simpleZones"
 
 export type WizardFlow = "simple" | "advanced";
 
+/**
+ * Customer-facing Studio controls. Multiple Advanced mapping slots (left/centre/right)
+ * can merge into one of these so the client sees a single "Lower Cabinets" button.
+ */
+export interface StudioZoneTarget {
+  id: string;
+  labelKey: TranslationKey;
+  palette: ZonePalette;
+  zoneGroup: ZoneGroup;
+}
+
+export const STUDIO_CABINET_TARGETS: StudioZoneTarget[] = [
+  {
+    id: "lower-cabinets",
+    labelKey: "zoneLowerCabinets",
+    palette: "wood",
+    zoneGroup: "wood",
+  },
+  {
+    id: "upper-cabinets",
+    labelKey: "zoneUpperCabinets",
+    palette: "wood",
+    zoneGroup: "wood",
+  },
+  {
+    id: "island",
+    labelKey: "zoneIsland",
+    palette: "wood",
+    zoneGroup: "wood",
+  },
+  {
+    id: "cabinets",
+    labelKey: "defaultZoneLabel",
+    palette: "wood",
+    zoneGroup: "wood",
+  },
+];
+
+/** Default Studio control for a fine-grained Advanced mapping slot. */
+export function defaultStudioZoneId(slotId: string): string {
+  if (
+    slotId === "lower-cabinets" ||
+    slotId.startsWith("lower-cabinet") ||
+    slotId.startsWith("lower-door")
+  ) {
+    return "lower-cabinets";
+  }
+  if (
+    slotId === "upper-cabinets" ||
+    slotId.startsWith("upper-cabinet") ||
+    slotId.startsWith("upper-door")
+  ) {
+    return "upper-cabinets";
+  }
+  if (slotId === "island" || slotId === "table") return "island";
+  if (slotId === "cabinets" || slotId === "shelves" || slotId === "side-cabinets") {
+    return slotId === "shelves" ? "shelves" : "cabinets";
+  }
+  return slotId;
+}
+
+export function buildDefaultStudioTargets(
+  assignments: Record<string, number[]>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const slotId of Object.keys(assignments)) {
+    out[slotId] = defaultStudioZoneId(slotId);
+  }
+  return out;
+}
+
+/**
+ * Collapse Advanced slot→region maps into Studio zone→union(regions).
+ * Same target id ⇒ one customer control + one union mask on save.
+ */
+export function mergeAssignmentsToStudioZones(
+  assignments: Record<string, number[]>,
+  targetBySlot: Record<string, string>
+): Record<string, number[]> {
+  const out: Record<string, number[]> = {};
+  for (const [slotId, regionIds] of Object.entries(assignments)) {
+    if (!regionIds.length) continue;
+    const target = targetBySlot[slotId] ?? defaultStudioZoneId(slotId);
+    const merged = new Set([...(out[target] ?? []), ...regionIds]);
+    out[target] = Array.from(merged).sort((a, b) => a - b);
+  }
+  return out;
+}
+
+export function resolveStudioZoneMeta(
+  zoneId: string,
+  category: RoomCategory
+): { id: string; labelKey: TranslationKey; palette: ZonePalette; zoneGroup: ZoneGroup } {
+  const cabinet = STUDIO_CABINET_TARGETS.find((t) => t.id === zoneId);
+  if (cabinet) return cabinet;
+  const q = getZoneQuestionById(category, zoneId);
+  if (q) {
+    return {
+      id: q.id,
+      labelKey: q.labelKey,
+      palette: q.palette,
+      zoneGroup: q.zoneGroup,
+    };
+  }
+  return {
+    id: zoneId,
+    labelKey: "defaultZoneLabel",
+    palette: "wood",
+    zoneGroup: "wood",
+  };
+}
+
+/** Dropdown options for Advanced review: shared cabinet targets + keep-as-mapped slots. */
+export function studioTargetOptionsForSlots(
+  slotIds: string[],
+  category: RoomCategory
+): StudioZoneTarget[] {
+  const byId = new Map<string, StudioZoneTarget>();
+  for (const t of STUDIO_CABINET_TARGETS) byId.set(t.id, t);
+  for (const slotId of slotIds) {
+    const meta = resolveStudioZoneMeta(slotId, category);
+    if (!byId.has(meta.id)) {
+      byId.set(meta.id, {
+        id: meta.id,
+        labelKey: meta.labelKey,
+        palette: meta.palette,
+        zoneGroup: meta.zoneGroup,
+      });
+    }
+    // Also offer keeping the fine-grained slot as its own Studio control.
+    if (!byId.has(slotId)) {
+      const q = getZoneQuestionById(category, slotId);
+      byId.set(slotId, {
+        id: slotId,
+        labelKey: q?.labelKey ?? "defaultZoneLabel",
+        palette: q?.palette ?? "wood",
+        zoneGroup: q?.zoneGroup ?? "wood",
+      });
+    }
+  }
+  return Array.from(byId.values());
+}
+
 export function wizardProgress(
   step: WizardStep,
   questionIndex: number,

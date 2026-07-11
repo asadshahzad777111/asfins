@@ -10,6 +10,7 @@ import type {
 } from "./types";
 import { ZONE_META } from "./types";
 import { getCollection, COLLECTIONS, mongoInsertMany } from "@/lib/db/client";
+import { getSceneWorkDir } from "@/lib/storage/scene-assets";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const REGISTRY_PATH = path.join(DATA_DIR, "scenes.json");
@@ -240,9 +241,11 @@ export async function listAllScenes(): Promise<SceneRecord[]> {
 
 export function buildZoneConfigs(
   sceneId: string,
-  zones: { id: string; label: string; palette: ZonePalette }[]
+  zones: { id: string; label: string; palette: ZonePalette }[],
+  /** Public URL prefix — `/scenes/<id>` locally or R2 `https://…/scenes/<id>` on Vercel. */
+  assetBase?: string
 ): SceneZoneConfig[] {
-  const base = `/scenes/${sceneId}`;
+  const base = (assetBase ?? `/scenes/${sceneId}`).replace(/\/$/, "");
   return zones.map((z, i) => {
     const meta = ZONE_META[z.id];
     const palette = z.palette;
@@ -291,7 +294,7 @@ export async function deleteScene(id: string): Promise<boolean> {
 }
 
 export function getSceneDir(sceneId: string): string {
-  return path.join(process.cwd(), "public", "scenes", sceneId);
+  return getSceneWorkDir(sceneId);
 }
 
 export function slugifyZoneId(label: string): string {

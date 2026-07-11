@@ -1,11 +1,10 @@
-import { writeFile, mkdir, unlink, copyFile } from "fs/promises";
+import { writeFile, unlink, copyFile, mkdir } from "fs/promises";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminFromRequest } from "@/lib/admin/auth";
 import {
   addScene,
   buildZoneConfigs,
-  getSceneDir,
   getSceneRecordById,
   listAllScenes,
   deleteScene,
@@ -28,6 +27,14 @@ import {
 } from "@/lib/images/merge-cutouts";
 import type { SceneRecord, RoomCategory, ZonePalette } from "@/lib/scenes/types";
 import sharp from "sharp";
+import {
+  assertSceneStorageReady,
+  ensureWorkFile,
+  getSceneWorkDir,
+  persistSceneWorkDir,
+  siblingAssetUrl,
+  R2ConfigError,
+} from "@/lib/storage/scene-assets";
 
 /** Mask merge + sharp work routinely exceeds the default serverless window. */
 export const maxDuration = 120;
@@ -146,9 +153,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    assertSceneStorageReady();
     return await handleScenePost(form);
   } catch (err) {
     console.error("[admin/scenes] POST failed:", err);
+    if (err instanceof R2ConfigError) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
     const message =
       err instanceof Error && err.message
         ? err.message
@@ -174,9 +185,7 @@ async function handleScenePost(form: FormData): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid room category" }, { status: 400 });
   }
 
-  // Editing an existing scene (same id) reuses whatever files aren't replaced —
-  // sceneDir is deterministic from the id, so anything we don't rewrite below
-  // is simply left in place from the previous save.
+  // Editing an existing scene (same id) reuses whatever files aren't replaced.
   const existingRecord = requestedId ? await getSceneRecordById(requestedId) : undefined;
 
   let baseImage: { buffer: Buffer; ext: string } | null;
@@ -272,10 +281,13 @@ async function handleScenePost(form: FormData): Promise<NextResponse> {
   }
 
   const sceneId = requestedId || slugifySceneId(name);
-  const sceneDir = getSceneDir(sceneId);
+  // On Vercel this is os.tmpdir(); locally it is public/scenes/<id>.
+  const sceneDir = getSceneWorkDir(sceneId);
   await mkdir(sceneDir, { recursive: true });
 
-  // Drop zones the admin removed in the simple editor.
+  const existingBase = existingRecord?.basePhoto;
+
+  // Drop zones the admin removed in the simple editor (local work copy only).
   const removedRaw = String(form.get("removedZoneIds") ?? "");
   const removedIds = removedRaw
     ? removedRaw.split(",").map((s) => s.trim()).filter(Boolean)
@@ -290,9 +302,12 @@ async function handleScenePost(form: FormData): Promise<NextResponse> {
     : existingRecord!.basePhoto.endsWith(".png")
       ? "base.png"
       : "base.jpg";
-  if (baseImage) {
-    await writeFile(path.join(sceneDir, baseFilename), baseImage.buffer);
-  }
+
+  await ensureWorkFile(path.join(sceneDir, baseFilename), {
+    buffer: baseImage?.buffer,
+    remoteUrl: !baseImage && existingBase ? existingBase : null,
+    label: "Base photo",
+  });
 
   const zonesNeedingMaskGen: string[] = [];
   let width = 0;
@@ -312,8 +327,19 @@ async function handleScenePost(form: FormData): Promise<NextResponse> {
     }
 
     const masterPath = path.join(sceneDir, "master-cutout.png");
-    if (masterCutout) {
-      await writeFile(masterPath, masterCutout.buffer);
+    const masterRemote =
+      !masterCutout && existingBase
+        ? siblingAssetUrl(existingBase, "master-cutout.png")
+        : null;
+    try {
+      await ensureWorkFile(masterPath, {
+        buffer: masterCutout?.buffer,
+        remoteUrl: masterRemote,
+        label: "Master cutout",
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Master cutout missing";
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     // Masks are always rebuilt from regionMappings — even when the cutout PNG
@@ -329,6 +355,7 @@ async function handleScenePost(form: FormData): Promise<NextResponse> {
     for (const zone of uploadedZones) {
       const i = zone.index;
       const keepExisting = form.get(`zone_${i}_keepExisting`) === "true";
+      const existingMask = existingRecord?.zones.find((z) => z.id === zone.id)?.maskPath;
 
       try {
         const layer = await resolveImageBuffer(
@@ -341,7 +368,29 @@ async function handleScenePost(form: FormData): Promise<NextResponse> {
           await writeFile(path.join(sceneDir, `layer-${zone.id}.png`), layer.buffer);
           zonesNeedingMaskGen.push(zone.id);
         } else if (keepExisting) {
-          // Reuse existing mask/layer on disk — nothing to write.
+          // Pull prior mask/layer into the work dir (R2 or baked /scenes/...).
+          const layerRemote = existingBase
+            ? siblingAssetUrl(existingBase, `layer-${zone.id}.png`)
+            : null;
+          try {
+            await ensureWorkFile(path.join(sceneDir, `layer-${zone.id}.png`), {
+              remoteUrl: layerRemote,
+              label: `Layer ${zone.label}`,
+            });
+            zonesNeedingMaskGen.push(zone.id);
+          } catch {
+            if (existingMask) {
+              await ensureWorkFile(path.join(sceneDir, `mask-${zone.id}.png`), {
+                remoteUrl: existingMask,
+                label: `Mask ${zone.label}`,
+              });
+            } else {
+              return NextResponse.json(
+                { error: `Missing cutout PNG for ${zone.label}` },
+                { status: 400 }
+              );
+            }
+          }
         } else {
           return NextResponse.json(
             { error: `Missing cutout PNG for ${zone.label}` },
@@ -447,16 +496,15 @@ async function handleScenePost(form: FormData): Promise<NextResponse> {
     .jpeg({ quality: 80 })
     .toFile(thumbPath);
 
-  const assetBase = `/scenes/${sceneId}`;
+  // Local: /scenes/<id>; Vercel: https://pub-….r2.dev/scenes/<id>
+  const assetBase = await persistSceneWorkDir(sceneId, sceneDir);
+
   const catalogIds = catalogIdsRaw
     ? catalogIdsRaw.split(",").map((s) => s.trim()).filter(Boolean)
     : ["artisan-laminates", "greenply", "local-paint", "zrk-group"];
 
-  const basePhotoPath = baseImage
-    ? baseImage.ext === ".png"
-      ? `${assetBase}/base.png`
-      : `${assetBase}/base.jpg`
-    : existingRecord!.basePhoto;
+  const basePhotoPath =
+    baseFilename === "base.png" ? `${assetBase}/base.png` : `${assetBase}/base.jpg`;
 
   // Simple mode drops regionMappings so studio only sees the uploaded zones.
   const record: SceneRecord = {
@@ -472,7 +520,8 @@ async function handleScenePost(form: FormData): Promise<NextResponse> {
     nightGlow: `${assetBase}/night-glow.png`,
     zones: buildZoneConfigs(
       sceneId,
-      uploadedZones.map(({ id, label, palette }) => ({ id, label, palette }))
+      uploadedZones.map(({ id, label, palette }) => ({ id, label, palette })),
+      assetBase
     ),
     catalogIds,
     createdAt: existingRecord?.createdAt ?? new Date().toISOString(),

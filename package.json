@@ -23,7 +23,8 @@
     "scrape-zrk-mdf": "node scripts/scrape-zrk-mdf.mjs",
     "scrape-zrk-mdf:import": "node scripts/scrape-zrk-mdf.mjs --import",
     "resolve-patex": "node scripts/resolve-patex-images.mjs",
-    "analyze-mask": "node scripts/analyze-mask.mjs"
+    "analyze-mask": "node scripts/analyze-mask.mjs",
+    "smoke:scene-storage": "node scripts/smoke-scene-storage.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.42.2",

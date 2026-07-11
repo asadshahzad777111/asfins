@@ -470,8 +470,15 @@ export const translations = {
     wizardNoRegionsFound: "No regions found in cutout — try a different PNG.",
     wizardParseError: "Could not parse cutout image.",
     wizardNoZonesMapped: "Map at least one zone before saving.",
-    wizardReviewDesc: "Review zone assignments before saving.",
+    wizardReviewDesc:
+      "Review which Studio control each tagged area uses. Merge left/centre/right cabinets into one control so customers apply one colour to all parts.",
     wizardRegions: "Regions",
+    wizardTaggedAs: "Tagged as",
+    wizardStudioControl: "Studio control (customer sees)",
+    wizardMergeCabinetsHint:
+      "Same Studio control = one button in the Design Studio; colour applies to every region in that group.",
+    wizardMergeAllCabinets: "Merge all cabinet parts into Lower / Upper / Island",
+    wizardStudioPreview: "Customer will see {count} zone(s)",
     wizardSkippedZones: "Skipped zones",
     wizardEditSkipped: "Edit skipped",
     wizardBack: "Back",
@@ -998,8 +1005,15 @@ export const translations = {
     wizardNoRegionsFound: "Cutout mein koi region nahi mila.",
     wizardParseError: "Cutout image parse nahi ho saki.",
     wizardNoZonesMapped: "Save se pehle kam az kam ek zone map karein.",
-    wizardReviewDesc: "Save se pehle zone assignments review karein.",
+    wizardReviewDesc:
+      "Har tagged area ka Studio control review karein. Left/centre/right cabinets ko ek control mein merge karein taake customer ek colour se saari parts paint kare.",
     wizardRegions: "Regions",
+    wizardTaggedAs: "Tagged as",
+    wizardStudioControl: "Studio control (customer ko dikhega)",
+    wizardMergeCabinetsHint:
+      "Same Studio control = Design Studio mein ek button; colour us group ki saari regions par lagega.",
+    wizardMergeAllCabinets: "Saari cabinet parts ko Lower / Upper / Island mein merge karein",
+    wizardStudioPreview: "Customer ko {count} zone(s) dikhengi",
     wizardSkippedZones: "Skipped zones",
     wizardEditSkipped: "Skipped edit karein",
     wizardBack: "Back",
