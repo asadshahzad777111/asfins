@@ -1,7 +1,20 @@
 import { MongoClient, type Db, type Collection, type Document } from "mongodb";
 
+/** Strip whitespace and wrapping quotes from env values (common Vercel paste issue). */
+export function normalizeMongoUri(uri?: string): string {
+  if (!uri) return "";
+  let value = uri.trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1).trim();
+  }
+  return value;
+}
+
 /** Dedicated database for asfins.com — NOT shared with asfixgear */
-export const DB_NAME = process.env.MONGODB_DB_NAME ?? "asfins";
+export const DB_NAME = normalizeMongoUri(process.env.MONGODB_DB_NAME) || "asfins";
 
 export const COLLECTIONS = {
   scenes: "scenes",
@@ -42,15 +55,24 @@ function isPlaceholderUri(uri: string): boolean {
 }
 
 export function isValidMongoUri(uri?: string): boolean {
-  if (!uri) return false;
-  if (isPlaceholderUri(uri)) return false;
-  return uri.startsWith("mongodb://") || uri.startsWith("mongodb+srv://");
+  const normalized = normalizeMongoUri(uri);
+  if (!normalized) return false;
+  if (isPlaceholderUri(normalized)) return false;
+  return (
+    normalized.startsWith("mongodb://") ||
+    normalized.startsWith("mongodb+srv://")
+  );
 }
 
 function describeUriProblem(uri?: string): string {
-  if (!uri) return "MONGODB_URI is not set";
-  if (isPlaceholderUri(uri)) return "MONGODB_URI still contains placeholder credentials";
-  if (!uri.startsWith("mongodb://") && !uri.startsWith("mongodb+srv://")) {
+  const normalized = normalizeMongoUri(uri);
+  if (!normalized) return "MONGODB_URI is not set";
+  if (isPlaceholderUri(normalized))
+    return "MONGODB_URI still contains placeholder credentials";
+  if (
+    !normalized.startsWith("mongodb://") &&
+    !normalized.startsWith("mongodb+srv://")
+  ) {
     return "MONGODB_URI must start with mongodb:// or mongodb+srv://";
   }
   return "MONGODB_URI is invalid";
@@ -89,9 +111,9 @@ export async function assertMongoReady(): Promise<void> {
 export async function getDb(): Promise<Db | null> {
   if (mongoUnavailable) return null;
 
-  const uri = process.env.MONGODB_URI;
+  const uri = normalizeMongoUri(process.env.MONGODB_URI);
   if (!isValidMongoUri(uri)) {
-    const reason = describeUriProblem(uri);
+    const reason = describeUriProblem(process.env.MONGODB_URI);
     mongoUnavailable = true;
     mongoUnavailableReason = reason;
     if (isVercelRuntime()) {
@@ -107,7 +129,7 @@ export async function getDb(): Promise<Db | null> {
       console.log(
         `[db] Connecting to MongoDB (db=${DB_NAME}, vercel=${isVercelRuntime()})…`
       );
-      client = new MongoClient(uri!, {
+      client = new MongoClient(uri, {
         serverSelectionTimeoutMS: 8000,
       });
       await client.connect();
