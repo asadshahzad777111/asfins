@@ -18,8 +18,12 @@ import {
 } from "@/lib/scenes/zone-wizard";
 import {
   anyZoneConfigured,
+  applyCabinetPreset,
   buildInitialSimpleZoneRows,
   buildSimpleZoneSubmissions,
+  CABINET_CUSTOM_VALUE,
+  CABINET_ZONE_PRESETS,
+  cabinetPresetSelectValue,
   clearRowUpload,
   collectRemovedZoneIds,
   collectSceneCatalogIds,
@@ -30,6 +34,14 @@ import {
   syncRowCatalogsForPalette,
   type SimpleZoneRow,
 } from "@/lib/scenes/simple-upload";
+import {
+  compressImageSourceFile,
+  MAX_REQUEST_BYTES,
+} from "@/lib/images/compress-upload";
+import {
+  formatFetchFailure,
+  readApiErrorMessage,
+} from "@/lib/admin/parse-api-error";
 import {
   getUnmappedRegionIds,
   loadImageDataFromFile,
@@ -43,6 +55,9 @@ import {
 } from "@/components/admin/ImageSourceInput";
 import { CutoutZoneMapper } from "@/components/admin/CutoutZoneMapper";
 import { ZoneCutoutSlot } from "@/components/admin/ZoneCutoutSlot";
+
+/** Don't leave the Save button stuck forever if the server/proxy hangs. */
+const SAVE_TIMEOUT_MS = 120_000;
 
 interface SceneSetupWizardProps {
   catalogs: Catalog[];
@@ -143,6 +158,7 @@ export function SceneSetupWizard({
     () => existingScene?.catalogIds ?? catalogs.map((c) => c.id)
   );
   const [loading, setLoading] = useState(false);
+  const [loadingLabel, setLoadingLabel] = useState<TranslationKey>("uploading");
   const [parsing, setParsing] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err" | "warn"; text: string } | null>(null);
   const [editSkippedMode, setEditSkippedMode] = useState(false);
@@ -468,6 +484,35 @@ export function SceneSetupWizard({
     }
   }
 
+  async function postSceneForm(form: FormData): Promise<{ id?: string }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
+    try {
+      const res = await fetch("/api/admin/scenes", {
+        method: "POST",
+        body: form,
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const detail = await readApiErrorMessage(res, t("wizardSaveFailed"));
+        throw new Error(detail);
+      }
+      const data = (await res.json().catch(() => ({}))) as { scene?: { id?: string } };
+      return { id: data.scene?.id };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function compressSource(
+    source: ImageSourceValue,
+    kind: "photo" | "png"
+  ): Promise<ImageSourceValue> {
+    if (!source.file) return source;
+    const file = await compressImageSourceFile(source.file, kind);
+    return { ...source, file };
+  }
+
   async function handleSaveSimple() {
     const submissions = buildSimpleZoneSubmissions(simpleRows, t);
     if (submissions.length === 0) {
@@ -476,56 +521,171 @@ export function SceneSetupWizard({
     }
 
     setLoading(true);
-    setMessage(null);
+    setLoadingLabel("wizardSavingCompressing");
+    setMessage({ type: "warn", text: t("wizardSavingCompressing") });
 
     try {
-      const form = new FormData();
-      form.append("wizardMode", "simple");
-      form.append("name", name);
-      form.append("description", description);
-      form.append("category", category);
-      if (existingScene) form.append("id", existingScene.id);
-      appendImageSource(form, "basePhoto", basePhoto);
-      const catalogIds = collectSceneCatalogIds(simpleRows);
-      form.append("catalogIds", catalogIds.join(","));
-      form.append("zoneCount", String(submissions.length));
+      const compressedBase = await compressSource(basePhoto, "photo");
+      const compressedSubs: typeof submissions = [];
+      for (const sub of submissions) {
+        compressedSubs.push({
+          ...sub,
+          source: sub.keepExisting
+            ? sub.source
+            : await compressSource(sub.source, "png"),
+        });
+      }
 
-      const removed = collectRemovedZoneIds(simpleRows);
-      if (removed.length) form.append("removedZoneIds", removed.join(","));
+      type FileSlot =
+        | { kind: "base"; file: File }
+        | { kind: "zone"; index: number; file: File };
 
-      submissions.forEach((sub, i) => {
-        if (sub.id) form.append(`zone_${i}_id`, sub.id);
-        form.append(`zone_${i}_label`, sub.label);
-        form.append(`zone_${i}_palette`, sub.palette);
-        if (sub.keepExisting) {
-          form.append(`zone_${i}_keepExisting`, "true");
-        } else {
-          appendImageSource(form, `zone_${i}_file`, sub.source);
+      const slots: FileSlot[] = [];
+      if (compressedBase.file) slots.push({ kind: "base", file: compressedBase.file });
+      compressedSubs.forEach((sub, i) => {
+        if (!sub.keepExisting && sub.source.file) {
+          slots.push({ kind: "zone", index: i, file: sub.source.file });
         }
       });
 
-      const res = await fetch("/api/admin/scenes", { method: "POST", body: form });
-      let data: { error?: string } = {};
-      try {
-        data = (await res.json()) as { error?: string };
-      } catch {
-        data = { error: t("wizardSaveNetworkError") };
+      // Batch files so each multipart POST stays under Vercel's ~4.5MB body limit.
+      const batches: FileSlot[][] = [];
+      let current: FileSlot[] = [];
+      let currentBytes = 0;
+      for (const slot of slots) {
+        if (current.length > 0 && currentBytes + slot.file.size > MAX_REQUEST_BYTES) {
+          batches.push(current);
+          current = [];
+          currentBytes = 0;
+        }
+        // Single file still over budget — send alone (server will downscale / error clearly).
+        if (slot.file.size > MAX_REQUEST_BYTES && current.length === 0) {
+          batches.push([slot]);
+          continue;
+        }
+        current.push(slot);
+        currentBytes += slot.file.size;
+      }
+      if (current.length) batches.push(current);
+      if (batches.length === 0) batches.push([]);
+
+      // Never POST a base-only first batch on create — API requires ≥1 zone.
+      if (
+        batches.length > 1 &&
+        batches[0].every((s) => s.kind === "base") &&
+        batches[1].some((s) => s.kind === "zone")
+      ) {
+        const zoneIdx = batches[1].findIndex((s) => s.kind === "zone");
+        if (zoneIdx >= 0) {
+          const pulled = batches[1].splice(zoneIdx, 1)[0];
+          // Avoid TS narrowing batches[0] to base-only from the .every() check above.
+          (batches[0] as FileSlot[]).push(pulled);
+          if (batches[1].length === 0) batches.splice(1, 1);
+        }
       }
 
-      if (res.ok) {
-        setMessage({ type: "ok", text: t("saveSuccess", { name }) });
-        router.refresh();
-        onComplete();
-      } else {
-        setMessage({ type: "err", text: data.error ?? t("wizardSaveFailed") });
+      let sceneId = existingScene?.id;
+      const uploadedZoneIndexes = new Set<number>();
+
+      for (let b = 0; b < batches.length; b++) {
+        setLoadingLabel("wizardSavingUploading");
+        setMessage({
+          type: "warn",
+          text:
+            batches.length > 1
+              ? `${t("wizardSavingUploading")} (${b + 1}/${batches.length})`
+              : t("wizardSavingUploading"),
+        });
+
+        const batch = batches[b];
+        const batchHasBase = batch.some((s) => s.kind === "base");
+        const batchZoneIndexes = new Set(
+          batch.filter((s): s is Extract<FileSlot, { kind: "zone" }> => s.kind === "zone").map(
+            (s) => s.index
+          )
+        );
+
+        const form = new FormData();
+        form.append("wizardMode", "simple");
+        form.append("name", name);
+        form.append("description", description);
+        form.append("category", category);
+        if (sceneId) form.append("id", sceneId);
+
+        if (batchHasBase && compressedBase.file) {
+          form.append("basePhoto", compressedBase.file);
+        } else if (compressedBase.url && !sceneId) {
+          form.append("basePhotoUrl", compressedBase.url);
+        }
+
+        form.append("catalogIds", collectSceneCatalogIds(simpleRows).join(","));
+
+        const isLast = b === batches.length - 1;
+        // Only include zones we can satisfy now (file in this batch, or already on disk).
+        const indexes = compressedSubs
+          .map((_, i) => i)
+          .filter((i) => {
+            if (batchZoneIndexes.has(i) || uploadedZoneIndexes.has(i)) return true;
+            const sub = compressedSubs[i];
+            if (sub.keepExisting) return true;
+            if (isLast && sub.source.url) return true;
+            return false;
+          });
+
+        if (indexes.length === 0) {
+          throw new Error(t("wizardNoZonesMapped"));
+        }
+
+        form.append("zoneCount", String(indexes.length));
+        if (isLast) {
+          const removed = collectRemovedZoneIds(simpleRows);
+          if (removed.length) form.append("removedZoneIds", removed.join(","));
+        }
+
+        indexes.forEach((srcIndex, i) => {
+          const sub = compressedSubs[srcIndex];
+          if (sub.id) form.append(`zone_${i}_id`, sub.id);
+          form.append(`zone_${i}_label`, sub.label);
+          form.append(`zone_${i}_palette`, sub.palette);
+
+          if (batchZoneIndexes.has(srcIndex) && sub.source.file) {
+            form.append(`zone_${i}_file`, sub.source.file);
+          } else if (sub.source.url && !uploadedZoneIndexes.has(srcIndex) && !sub.keepExisting) {
+            form.append(`zone_${i}_fileUrl`, sub.source.url);
+          } else {
+            form.append(`zone_${i}_keepExisting`, "true");
+          }
+        });
+
+        const result = await postSceneForm(form);
+        if (result.id) sceneId = result.id;
+        for (const idx of batchZoneIndexes) uploadedZoneIndexes.add(idx);
       }
+
+      setMessage({ type: "ok", text: t("saveSuccess", { name }) });
+      router.refresh();
+      onComplete();
     } catch (err) {
-      setMessage({
-        type: "err",
-        text: err instanceof Error ? err.message : t("wizardSaveNetworkError"),
-      });
+      const isAbort =
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error && err.name === "AbortError");
+      if (isAbort) {
+        setMessage({
+          type: "err",
+          text: t("wizardSaveHttpError", {
+            status: "timeout",
+            detail: "Save timed out after 2 minutes — try smaller PNGs.",
+          }),
+        });
+      } else {
+        setMessage({
+          type: "err",
+          text: formatFetchFailure(err, t("wizardSaveNetworkError")),
+        });
+      }
     } finally {
       setLoading(false);
+      setLoadingLabel("uploading");
     }
   }
 
@@ -548,17 +708,24 @@ export function SceneSetupWizard({
     }
 
     setLoading(true);
-    setMessage(null);
+    setLoadingLabel("wizardSavingCompressing");
+    setMessage({ type: "warn", text: t("wizardSavingCompressing") });
 
     try {
+      const compressedBase = await compressSource(basePhoto, "photo");
+      const compressedCutout = await compressSource(cutout, "png");
+
+      setLoadingLabel("wizardSavingUploading");
+      setMessage({ type: "warn", text: t("wizardSavingUploading") });
+
       const form = new FormData();
       form.append("wizardMode", "region");
       form.append("name", name);
       form.append("description", description);
       form.append("category", category);
       if (existingScene) form.append("id", existingScene.id);
-      appendImageSource(form, "basePhoto", basePhoto);
-      appendImageSource(form, "masterCutout", cutout);
+      appendImageSource(form, "basePhoto", compressedBase);
+      appendImageSource(form, "masterCutout", compressedCutout);
       form.append("catalogIds", selectedCatalogs.join(","));
       form.append("regionMappings", JSON.stringify(assignments));
       form.append("zoneCount", String(mappedZones.length));
@@ -570,29 +737,95 @@ export function SceneSetupWizard({
         form.append(`zone_${i}_palette`, (q?.palette ?? "wood") as ZonePalette);
       });
 
-      const res = await fetch("/api/admin/scenes", { method: "POST", body: form });
-      let data: { error?: string } = {};
-      try {
-        data = (await res.json()) as { error?: string };
-      } catch {
-        data = { error: t("wizardSaveNetworkError") };
+      const totalBytes =
+        (compressedBase.file?.size ?? 0) + (compressedCutout.file?.size ?? 0);
+      if (totalBytes > MAX_REQUEST_BYTES) {
+        // Sequential: base first (with a dummy? region mode needs master cutout).
+        // Region mode requires both in one go for mask build — re-compress harder.
+        throw new Error(t("wizardSaveTooLarge"));
       }
 
-      if (res.ok) {
-        setMessage({ type: "ok", text: t("saveSuccess", { name }) });
-        router.refresh();
-        onComplete();
-      } else {
-        setMessage({ type: "err", text: data.error ?? t("wizardSaveFailed") });
-      }
+      await postSceneForm(form);
+      setMessage({ type: "ok", text: t("saveSuccess", { name }) });
+      router.refresh();
+      onComplete();
     } catch (err) {
-      setMessage({
-        type: "err",
-        text: err instanceof Error ? err.message : t("wizardSaveNetworkError"),
-      });
+      const isAbort =
+        (err instanceof DOMException && err.name === "AbortError") ||
+        (err instanceof Error && err.name === "AbortError");
+      if (isAbort) {
+        setMessage({
+          type: "err",
+          text: t("wizardSaveHttpError", {
+            status: "timeout",
+            detail: "Save timed out after 2 minutes — try smaller PNGs.",
+          }),
+        });
+      } else {
+        setMessage({
+          type: "err",
+          text: formatFetchFailure(err, t("wizardSaveNetworkError")),
+        });
+      }
     } finally {
       setLoading(false);
+      setLoadingLabel("uploading");
     }
+  }
+
+  function handleCabinetPresetChange(row: SimpleZoneRow, value: string) {
+    if (value === CABINET_CUSTOM_VALUE) {
+      replaceSimpleRow(
+        row.key,
+        applyCabinetPreset(row, CABINET_CUSTOM_VALUE, row.label || "", existingScene)
+      );
+      return;
+    }
+    const preset = CABINET_ZONE_PRESETS.find((p) => p.id === value);
+    if (!preset) return;
+    const taken = simpleRows.some((r) => r.key !== row.key && r.id === preset.id);
+    if (taken) {
+      setMessage({ type: "err", text: t("wizardZoneTypeTaken") });
+      return;
+    }
+    replaceSimpleRow(
+      row.key,
+      applyCabinetPreset(row, preset.id, t(preset.labelKey), existingScene)
+    );
+  }
+
+  function cabinetNameFields(row: SimpleZoneRow) {
+    const selectValue = cabinetPresetSelectValue(row) || "cabinets";
+    const showCustom = selectValue === CABINET_CUSTOM_VALUE;
+    return (
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+        <label className="form-group" style={{ margin: 0 }}>
+          <span>{t("zoneNameLabel")}</span>
+          <select
+            value={selectValue}
+            onChange={(e) => handleCabinetPresetChange(row, e.target.value)}
+          >
+            {CABINET_ZONE_PRESETS.map((p) => {
+              const taken = simpleRows.some((r) => r.key !== row.key && r.id === p.id);
+              return (
+                <option key={p.id} value={p.id} disabled={taken}>
+                  {t(p.labelKey)}
+                  {taken ? ` (${t("wizardZoneInUse")})` : ""}
+                </option>
+              );
+            })}
+            <option value={CABINET_CUSTOM_VALUE}>{t("zoneCabinetCustom")}</option>
+          </select>
+        </label>
+        {showCustom && (
+          <input
+            value={row.label}
+            onChange={(e) => updateSimpleRow(row.key, { label: e.target.value, id: undefined })}
+            placeholder={t("wizardCabinetNamePlaceholder")}
+          />
+        )}
+      </div>
+    );
   }
 
   function paletteLabel(palette: ZonePalette) {
@@ -781,16 +1014,7 @@ export function SceneSetupWizard({
                       }
                     }}
                     onRestore={() => updateSimpleRow(row.key, { removed: false })}
-                    headerExtra={
-                      <label className="form-group" style={{ flex: 1, margin: 0 }}>
-                        <span>{t("zoneNameLabel")}</span>
-                        <input
-                          value={row.label}
-                          onChange={(e) => updateSimpleRow(row.key, { label: e.target.value })}
-                          placeholder={t("wizardCabinetNamePlaceholder")}
-                        />
-                      </label>
-                    }
+                    headerExtra={cabinetNameFields(row)}
                   />
                 ))}
               </div>
@@ -916,9 +1140,11 @@ export function SceneSetupWizard({
                 return (
                   <div key={row.key} className="wizard-review-row">
                     <div className="wizard-review-row-grid">
-                      <label className="form-group">
-                        <span>{t("zoneNameLabel")}</span>
-                        {row.kind === "single" && row.id && singleZoneOptions.some((q) => q.id === row.id) ? (
+                      {row.kind === "single" &&
+                      row.id &&
+                      singleZoneOptions.some((q) => q.id === row.id) ? (
+                        <label className="form-group">
+                          <span>{t("zoneNameLabel")}</span>
                           <select
                             value={row.id}
                             onChange={(e) => void handleZoneTypeChange(row, e.target.value)}
@@ -935,14 +1161,21 @@ export function SceneSetupWizard({
                               );
                             })}
                           </select>
-                        ) : (
+                        </label>
+                      ) : row.kind === "cabinet" ? (
+                        cabinetNameFields(row)
+                      ) : (
+                        <label className="form-group">
+                          <span>{t("zoneNameLabel")}</span>
                           <input
                             value={row.label}
-                            onChange={(e) => updateSimpleRow(row.key, { label: e.target.value })}
+                            onChange={(e) =>
+                              updateSimpleRow(row.key, { label: e.target.value })
+                            }
                             placeholder={t("wizardCabinetNamePlaceholder")}
                           />
-                        )}
-                      </label>
+                        </label>
+                      )}
 
                       <label className="form-group">
                         <span>{t("wizardPaletteLabel")}</span>
@@ -1168,7 +1401,7 @@ export function SceneSetupWizard({
                 void (flow === "simple" ? handleSaveSimple() : handleSaveAdvanced())
               }
             >
-              {loading ? t("uploading") : t("saveKitchen")}
+              {loading ? t(loadingLabel) : t("saveKitchen")}
             </button>
           )}
         </div>

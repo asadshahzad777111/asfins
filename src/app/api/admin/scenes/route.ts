@@ -29,6 +29,10 @@ import {
 import type { SceneRecord, RoomCategory, ZonePalette } from "@/lib/scenes/types";
 import sharp from "sharp";
 
+/** Mask merge + sharp work routinely exceeds the default serverless window. */
+export const maxDuration = 120;
+export const runtime = "nodejs";
+
 const VALID_CATEGORIES: RoomCategory[] = [
   "kitchen",
   "bathroom",
@@ -50,16 +54,49 @@ async function resolveImageBuffer(
 ): Promise<{ buffer: Buffer; ext: string } | null> {
   const file = form.get(fileKey);
   if (file instanceof File && file.size > 0) {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = file.name.toLowerCase().endsWith(".png") ? ".png" : defaultExt;
-    return { buffer, ext };
+    const raw = Buffer.from(await file.arrayBuffer());
+    const preferPng =
+      defaultExt === ".png" ||
+      file.type === "image/png" ||
+      file.name.toLowerCase().endsWith(".png");
+    try {
+      const meta = await sharp(raw).metadata();
+      const w = meta.width ?? 0;
+      const h = meta.height ?? 0;
+      let pipeline = sharp(raw);
+      if (Math.max(w, h) > 1600) {
+        pipeline = pipeline.resize(1600, 1600, { fit: "inside", withoutEnlargement: true });
+      }
+      if (preferPng) {
+        return { buffer: await pipeline.png({ compressionLevel: 8 }).toBuffer(), ext: ".png" };
+      }
+      return { buffer: await pipeline.jpeg({ quality: 85 }).toBuffer(), ext: ".jpg" };
+    } catch {
+      const ext = file.name.toLowerCase().endsWith(".png") ? ".png" : defaultExt;
+      return { buffer: raw, ext };
+    }
   }
 
   const url = String(form.get(urlKey) ?? "").trim();
   if (url) {
     try {
       const fetched = await fetchImageFromUrl(url);
-      return { buffer: fetched.buffer, ext: fetched.ext };
+      try {
+        const meta = await sharp(fetched.buffer).metadata();
+        const w = meta.width ?? 0;
+        const h = meta.height ?? 0;
+        let pipeline = sharp(fetched.buffer);
+        if (Math.max(w, h) > 1600) {
+          pipeline = pipeline.resize(1600, 1600, { fit: "inside", withoutEnlargement: true });
+        }
+        const preferPng = fetched.ext === ".png" || defaultExt === ".png";
+        if (preferPng) {
+          return { buffer: await pipeline.png({ compressionLevel: 8 }).toBuffer(), ext: ".png" };
+        }
+        return { buffer: await pipeline.jpeg({ quality: 85 }).toBuffer(), ext: ".jpg" };
+      } catch {
+        return { buffer: fetched.buffer, ext: fetched.ext };
+      }
     } catch (err) {
       const message =
         err instanceof ImageFetchError ? err.message : "Could not fetch image from URL";
@@ -94,8 +131,18 @@ export async function POST(request: NextRequest) {
   let form: FormData;
   try {
     form = await request.formData();
-  } catch {
-    return NextResponse.json({ error: "Expected multipart form" }, { status: 400 });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[admin/scenes] formData parse failed:", detail);
+    const tooLarge = /larg|size|413|body|limit|entity/i.test(detail);
+    return NextResponse.json(
+      {
+        error: tooLarge
+          ? "Upload too large for the server. Compress cutouts or upload fewer zones at once."
+          : `Could not read upload (${detail || "invalid multipart form"})`,
+      },
+      { status: tooLarge ? 413 : 400 }
+    );
   }
 
   try {

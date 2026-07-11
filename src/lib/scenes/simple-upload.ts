@@ -116,12 +116,28 @@ export function buildInitialSimpleZoneRows(
   return rows;
 }
 
+/** Preset cabinet zone names — same UX as Floor's dropdown (select, don't free-type). */
+export const CABINET_ZONE_PRESETS: {
+  id: string;
+  labelKey: TranslationKey;
+}[] = [
+  { id: "upper-cabinets", labelKey: "zoneUpperCabinets" },
+  { id: "lower-cabinets", labelKey: "zoneLowerCabinets" },
+  { id: "lower-cabinets-island", labelKey: "zoneLowerCabinetsIsland" },
+  { id: "island", labelKey: "zoneIsland" },
+  { id: "side-cabinets", labelKey: "zoneSideCabinets" },
+  { id: "tall-cabinets", labelKey: "zoneTallCabinets" },
+  { id: "cabinets", labelKey: "defaultZoneLabel" },
+];
+
+export const CABINET_CUSTOM_VALUE = "__custom__";
+
 export function newCabinetRow(catalogs: Catalog[] = []): SimpleZoneRow {
   return {
     key: nextRowKey("cabinet"),
-    id: undefined,
+    id: "cabinets",
     kind: "cabinet",
-    label: "",
+    label: "Cabinets",
     palette: "wood",
     source: emptyImageSource(),
     catalogIds: defaultCatalogIdsForPalette(catalogs, "wood"),
@@ -130,9 +146,59 @@ export function newCabinetRow(catalogs: Catalog[] = []): SimpleZoneRow {
   };
 }
 
+/** Apply a cabinet preset id → stable zone id + display label. */
+export function applyCabinetPreset(
+  row: SimpleZoneRow,
+  presetId: string,
+  label: string,
+  existingScene?: SceneRecord
+): SimpleZoneRow {
+  if (presetId === CABINET_CUSTOM_VALUE) {
+    return {
+      ...row,
+      id: undefined,
+      label,
+      existedBefore: false,
+    };
+  }
+
+  const targetExisted = Boolean(existingScene?.zones.some((z) => z.id === presetId));
+  const sameId = row.id === presetId;
+  return {
+    ...row,
+    id: presetId,
+    label,
+    existedBefore: targetExisted,
+    source: sameId
+      ? row.source
+      : targetExisted && existingScene
+        ? {
+            file: null,
+            url: "",
+            preview: `/scenes/${existingScene.id}/mask-${presetId}.png`,
+            mode: "upload",
+          }
+        : row.source.file || row.source.url
+          ? row.source
+          : emptyImageSource(),
+  };
+}
+
+/** Which select value to show for an existing cabinet row. */
+export function cabinetPresetSelectValue(row: SimpleZoneRow): string {
+  if (row.id && CABINET_ZONE_PRESETS.some((p) => p.id === row.id)) return row.id;
+  if (row.label.trim()) return CABINET_CUSTOM_VALUE;
+  return "";
+}
+
 export function isRowConfigured(row: SimpleZoneRow): boolean {
   if (row.removed) return false;
-  if (row.kind === "cabinet" && !row.label.trim()) return false;
+  if (row.kind === "cabinet") {
+    const hasPreset = Boolean(
+      row.id && CABINET_ZONE_PRESETS.some((p) => p.id === row.id)
+    );
+    if (!row.label.trim() && !hasPreset) return false;
+  }
   return hasSource(row.source) || row.existedBefore;
 }
 
@@ -157,12 +223,16 @@ export function buildSimpleZoneSubmissions(
   const out: SimpleZoneSubmission[] = [];
   for (const row of rows) {
     if (!isRowConfigured(row)) continue;
-    const label =
+    let label =
       row.kind === "single" && row.labelKey ? t(row.labelKey) : row.label.trim();
+    if (!label && row.id) {
+      const preset = CABINET_ZONE_PRESETS.find((p) => p.id === row.id);
+      if (preset) label = t(preset.labelKey);
+    }
     const hasNewFile = Boolean(row.source.file || row.source.url);
     out.push({
       id: row.id,
-      label,
+      label: label || row.id || "cabinets",
       palette: row.palette,
       source: row.source,
       catalogIds: row.catalogIds,
