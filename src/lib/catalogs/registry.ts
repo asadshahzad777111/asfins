@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, access } from "fs/promises";
 import path from "path";
 import type { Catalog, CatalogRegistry } from "./types";
-import { getCollection, COLLECTIONS, mongoInsertMany } from "@/lib/db/client";
+import { getCollection, COLLECTIONS, mongoInsertMany, assertJsonWriteAllowed, isVercelRuntime } from "@/lib/db/client";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const REGISTRY_PATH = path.join(DATA_DIR, "catalogs.json");
@@ -106,11 +106,29 @@ async function mergeMissingDefaults(catalogs: Catalog[]): Promise<Catalog[]> {
       changed = true;
     }
   }
-  if (changed) await writeJsonCatalogs(merged);
+  if (changed) {
+    if (isVercelRuntime()) {
+      // Prefer in-memory merge only — never write data/catalogs.json on Vercel.
+      return merged;
+    }
+    await writeJsonCatalogs(merged);
+  }
   return merged;
 }
 
 async function readJsonCatalogs(): Promise<Catalog[]> {
+  if (isVercelRuntime()) {
+    if (!(await fileExists(REGISTRY_PATH))) {
+      return defaultCatalogs();
+    }
+    try {
+      const raw = await readFile(REGISTRY_PATH, "utf-8");
+      return mergeMissingDefaults((JSON.parse(raw) as CatalogRegistry).catalogs);
+    } catch {
+      return defaultCatalogs();
+    }
+  }
+
   await mkdir(DATA_DIR, { recursive: true });
   if (!(await fileExists(REGISTRY_PATH))) {
     const catalogs = defaultCatalogs();
@@ -123,6 +141,7 @@ async function readJsonCatalogs(): Promise<Catalog[]> {
 }
 
 async function writeJsonCatalogs(catalogs: Catalog[]): Promise<void> {
+  assertJsonWriteAllowed("data/catalogs.json");
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(REGISTRY_PATH, JSON.stringify({ catalogs }, null, 2), "utf-8");
 }
@@ -174,6 +193,7 @@ export async function writeCatalogRegistry(registry: CatalogRegistry): Promise<v
     }
     return;
   }
+  assertJsonWriteAllowed("data/catalogs.json");
   await writeJsonCatalogs(registry.catalogs);
 }
 
@@ -205,6 +225,7 @@ export async function saveCatalog(catalog: Catalog): Promise<void> {
     );
     return;
   }
+  assertJsonWriteAllowed("data/catalogs.json");
   const catalogs = await readJsonCatalogs();
   const idx = catalogs.findIndex((c) => c.id === catalog.id);
   if (idx >= 0) catalogs[idx] = catalog;
@@ -218,6 +239,7 @@ export async function deleteCatalog(id: string): Promise<boolean> {
     const result = await col.deleteOne({ id });
     return result.deletedCount > 0;
   }
+  assertJsonWriteAllowed("data/catalogs.json");
   const catalogs = await readJsonCatalogs();
   const filtered = catalogs.filter((c) => c.id !== id);
   if (filtered.length === catalogs.length) return false;

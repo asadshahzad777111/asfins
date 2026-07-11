@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, access } from "fs/promises";
 import path from "path";
 import type { Inquiry, InquiryRegistry } from "./types";
-import { getCollection, COLLECTIONS, mongoInsertMany, mongoInsertOne } from "@/lib/db/client";
+import { getCollection, COLLECTIONS, mongoInsertMany, mongoInsertOne, assertJsonWriteAllowed, isVercelRuntime } from "@/lib/db/client";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const REGISTRY_PATH = path.join(DATA_DIR, "inquiries.json");
@@ -16,6 +16,16 @@ async function fileExists(p: string): Promise<boolean> {
 }
 
 async function readJsonInquiries(): Promise<Inquiry[]> {
+  if (isVercelRuntime()) {
+    if (!(await fileExists(REGISTRY_PATH))) return [];
+    try {
+      const raw = await readFile(REGISTRY_PATH, "utf-8");
+      return (JSON.parse(raw) as InquiryRegistry).inquiries;
+    } catch {
+      return [];
+    }
+  }
+
   await mkdir(DATA_DIR, { recursive: true });
   if (!(await fileExists(REGISTRY_PATH))) {
     await writeFile(REGISTRY_PATH, JSON.stringify({ inquiries: [] }, null, 2), "utf-8");
@@ -26,6 +36,7 @@ async function readJsonInquiries(): Promise<Inquiry[]> {
 }
 
 async function writeJsonInquiries(inquiries: Inquiry[]): Promise<void> {
+  assertJsonWriteAllowed("data/inquiries.json");
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(REGISTRY_PATH, JSON.stringify({ inquiries }, null, 2), "utf-8");
 }
@@ -47,6 +58,7 @@ export async function writeInquiryRegistry(registry: InquiryRegistry): Promise<v
     }
     return;
   }
+  assertJsonWriteAllowed("data/inquiries.json");
   await writeJsonInquiries(registry.inquiries);
 }
 
@@ -68,6 +80,7 @@ export async function addInquiry(inquiry: Inquiry): Promise<void> {
     await mongoInsertOne(COLLECTIONS.inquiries, inquiry);
     return;
   }
+  assertJsonWriteAllowed("data/inquiries.json");
   const inquiries = await readJsonInquiries();
   inquiries.unshift(inquiry);
   await writeJsonInquiries(inquiries);

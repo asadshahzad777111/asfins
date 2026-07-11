@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, access } from "fs/promises";
 import path from "path";
 import type { Sale, SaleRegistry } from "./types";
-import { getCollection, COLLECTIONS } from "@/lib/db/client";
+import { getCollection, COLLECTIONS, assertJsonWriteAllowed, isVercelRuntime } from "@/lib/db/client";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const REGISTRY_PATH = path.join(DATA_DIR, "sales.json");
@@ -16,6 +16,16 @@ async function fileExists(p: string): Promise<boolean> {
 }
 
 async function readJsonSales(): Promise<Sale[]> {
+  if (isVercelRuntime()) {
+    if (!(await fileExists(REGISTRY_PATH))) return [];
+    try {
+      const raw = await readFile(REGISTRY_PATH, "utf-8");
+      return (JSON.parse(raw) as SaleRegistry).sales;
+    } catch {
+      return [];
+    }
+  }
+
   await mkdir(DATA_DIR, { recursive: true });
   if (!(await fileExists(REGISTRY_PATH))) {
     await writeFile(REGISTRY_PATH, JSON.stringify({ sales: [] }, null, 2), "utf-8");
@@ -26,6 +36,7 @@ async function readJsonSales(): Promise<Sale[]> {
 }
 
 async function writeJsonSales(sales: Sale[]): Promise<void> {
+  assertJsonWriteAllowed("data/sales.json");
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(REGISTRY_PATH, JSON.stringify({ sales }, null, 2), "utf-8");
 }
@@ -49,6 +60,7 @@ export async function saveSale(sale: Sale): Promise<void> {
     await col.updateOne({ id: sale.id }, { $set: sale }, { upsert: true });
     return;
   }
+  assertJsonWriteAllowed("data/sales.json");
   const sales = await readJsonSales();
   const idx = sales.findIndex((s) => s.id === sale.id);
   if (idx >= 0) sales[idx] = sale;
@@ -62,6 +74,7 @@ export async function deleteSale(id: string): Promise<boolean> {
     const result = await col.deleteOne({ id });
     return result.deletedCount > 0;
   }
+  assertJsonWriteAllowed("data/sales.json");
   const sales = await readJsonSales();
   const filtered = sales.filter((s) => s.id !== id);
   if (filtered.length === sales.length) return false;

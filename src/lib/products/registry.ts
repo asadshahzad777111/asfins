@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, access } from "fs/promises";
 import path from "path";
 import type { Product, ProductRegistry } from "./types";
-import { getCollection, COLLECTIONS, mongoInsertMany } from "@/lib/db/client";
+import { getCollection, COLLECTIONS, mongoInsertMany, assertJsonWriteAllowed, isVercelRuntime } from "@/lib/db/client";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const REGISTRY_PATH = path.join(DATA_DIR, "products.json");
@@ -60,6 +60,18 @@ async function fileExists(p: string): Promise<boolean> {
 }
 
 async function readJsonProducts(): Promise<Product[]> {
+  if (isVercelRuntime()) {
+    if (!(await fileExists(REGISTRY_PATH))) {
+      return defaultProducts();
+    }
+    try {
+      const raw = await readFile(REGISTRY_PATH, "utf-8");
+      return (JSON.parse(raw) as ProductRegistry).products;
+    } catch {
+      return defaultProducts();
+    }
+  }
+
   await mkdir(DATA_DIR, { recursive: true });
   if (!(await fileExists(REGISTRY_PATH))) {
     const products = defaultProducts();
@@ -71,6 +83,7 @@ async function readJsonProducts(): Promise<Product[]> {
 }
 
 async function writeJsonProducts(products: Product[]): Promise<void> {
+  assertJsonWriteAllowed("data/products.json");
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(REGISTRY_PATH, JSON.stringify({ products }, null, 2), "utf-8");
 }
@@ -117,6 +130,7 @@ export async function writeProductRegistry(registry: ProductRegistry): Promise<v
     }
     return;
   }
+  assertJsonWriteAllowed("data/products.json");
   await writeJsonProducts(registry.products);
 }
 
@@ -149,6 +163,7 @@ export async function saveProduct(product: Product): Promise<void> {
     );
     return;
   }
+  assertJsonWriteAllowed("data/products.json");
   const products = await readJsonProducts();
   const idx = products.findIndex((p) => p.id === product.id);
   if (idx >= 0) products[idx] = product;
@@ -162,6 +177,7 @@ export async function deleteProduct(id: string): Promise<boolean> {
     const result = await col.deleteOne({ id });
     return result.deletedCount > 0;
   }
+  assertJsonWriteAllowed("data/products.json");
   const products = await readJsonProducts();
   const filtered = products.filter((p) => p.id !== id);
   if (filtered.length === products.length) return false;

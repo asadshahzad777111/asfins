@@ -9,7 +9,15 @@ import type {
   ZonePalette,
 } from "./types";
 import { ZONE_META } from "./types";
-import { getCollection, COLLECTIONS, mongoInsertMany } from "@/lib/db/client";
+import {
+  getCollection,
+  COLLECTIONS,
+  mongoInsertMany,
+  assertJsonWriteAllowed,
+  isVercelRuntime,
+  getMongoUnavailableReason,
+  MongoUnavailableError,
+} from "@/lib/db/client";
 import { getSceneWorkDir } from "@/lib/storage/scene-assets";
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -111,17 +119,9 @@ async function fileExists(p: string): Promise<boolean> {
   }
 }
 
-async function readJsonScenes(): Promise<SceneRecord[]> {
-  await mkdir(DATA_DIR, { recursive: true });
-  if (!(await fileExists(REGISTRY_PATH))) {
-    const scenes = defaultScenes();
-    await writeFile(REGISTRY_PATH, JSON.stringify({ scenes }, null, 2), "utf-8");
-    return scenes;
-  }
-  const raw = await readFile(REGISTRY_PATH, "utf-8");
-  const registry = JSON.parse(raw) as SceneRegistry;
+function migrateSceneFields(scenes: SceneRecord[]): { scenes: SceneRecord[]; migrated: boolean } {
   let migrated = false;
-  for (const scene of registry.scenes) {
+  for (const scene of scenes) {
     if (!scene.category) {
       scene.category = "kitchen";
       migrated = true;
@@ -137,13 +137,45 @@ async function readJsonScenes(): Promise<SceneRecord[]> {
       migrated = true;
     }
   }
-  if (migrated) {
-    await writeFile(REGISTRY_PATH, JSON.stringify(registry, null, 2), "utf-8");
+  return { scenes, migrated };
+}
+
+async function readJsonScenes(): Promise<SceneRecord[]> {
+  // Vercel `/var/task` is read-only — never mkdir/write `data/scenes.json` there.
+  if (isVercelRuntime()) {
+    if (!(await fileExists(REGISTRY_PATH))) {
+      console.warn(
+        `[scenes] Mongo unavailable (${getMongoUnavailableReason()}) and no bundled scenes.json — returning defaults (read-only)`
+      );
+      return defaultScenes();
+    }
+    try {
+      const raw = await readFile(REGISTRY_PATH, "utf-8");
+      const registry = JSON.parse(raw) as SceneRegistry;
+      return migrateSceneFields(registry.scenes).scenes;
+    } catch (err) {
+      console.warn("[scenes] Failed to read bundled scenes.json:", (err as Error).message);
+      return defaultScenes();
+    }
   }
-  return registry.scenes;
+
+  await mkdir(DATA_DIR, { recursive: true });
+  if (!(await fileExists(REGISTRY_PATH))) {
+    const scenes = defaultScenes();
+    await writeFile(REGISTRY_PATH, JSON.stringify({ scenes }, null, 2), "utf-8");
+    return scenes;
+  }
+  const raw = await readFile(REGISTRY_PATH, "utf-8");
+  const registry = JSON.parse(raw) as SceneRegistry;
+  const { scenes, migrated } = migrateSceneFields(registry.scenes);
+  if (migrated) {
+    await writeFile(REGISTRY_PATH, JSON.stringify({ scenes }, null, 2), "utf-8");
+  }
+  return scenes;
 }
 
 async function writeJsonScenes(scenes: SceneRecord[]): Promise<void> {
+  assertJsonWriteAllowed("data/scenes.json");
   await mkdir(DATA_DIR, { recursive: true });
   await writeFile(REGISTRY_PATH, JSON.stringify({ scenes }, null, 2), "utf-8");
 }
@@ -162,7 +194,19 @@ async function readAllScenes(): Promise<SceneRecord[]> {
       return docs.map(({ _id, ...rest }) => rest as SceneRecord);
     }
   } catch (err) {
-    console.warn("[scenes] MongoDB read failed — using JSON:", (err as Error).message);
+    console.warn("[scenes] MongoDB read failed:", (err as Error).message);
+    if (isVercelRuntime()) {
+      throw new MongoUnavailableError(
+        `MongoDB scene read failed on Vercel (${(err as Error).message}). JSON fallback is disabled.`
+      );
+    }
+  }
+  if (isVercelRuntime()) {
+    console.error(
+      `[scenes] Mongo unavailable (${getMongoUnavailableReason()}) — refusing JSON write; returning read-only fallback`
+    );
+  } else {
+    console.warn("[scenes] Mongo unavailable — using JSON file fallback");
   }
   return readJsonScenes();
 }
@@ -184,6 +228,7 @@ export async function writeRegistry(registry: SceneRegistry): Promise<void> {
     }
     return;
   }
+  assertJsonWriteAllowed("data/scenes.json");
   await writeJsonScenes(registry.scenes);
 }
 
@@ -266,12 +311,19 @@ export function buildZoneConfigs(
 export async function addScene(record: SceneRecord): Promise<void> {
   const col = await getCollection(COLLECTIONS.scenes);
   if (col) {
+    // Never $set _id on existing docs (immutable); only set on insert.
     await col.updateOne(
       { id: record.id },
-      { $set: { ...record, _id: record.id } },
+      { $set: { ...record }, $setOnInsert: { _id: record.id } },
       { upsert: true }
     );
+    console.log(`[scenes] Saved scene "${record.id}" to MongoDB`);
     return;
+  }
+  if (isVercelRuntime()) {
+    throw new MongoUnavailableError(
+      `Cannot save scene metadata on Vercel without MongoDB (${getMongoUnavailableReason()}). Check MONGODB_URI / MONGODB_DB_NAME and Atlas Network Access.`
+    );
   }
   const scenes = await readJsonScenes();
   const idx = scenes.findIndex((s) => s.id === record.id);
@@ -285,6 +337,11 @@ export async function deleteScene(id: string): Promise<boolean> {
   if (col) {
     const result = await col.deleteOne({ id });
     return result.deletedCount > 0;
+  }
+  if (isVercelRuntime()) {
+    throw new MongoUnavailableError(
+      `Cannot delete scene on Vercel without MongoDB (${getMongoUnavailableReason()}).`
+    );
   }
   const scenes = await readJsonScenes();
   const filtered = scenes.filter((s) => s.id !== id);

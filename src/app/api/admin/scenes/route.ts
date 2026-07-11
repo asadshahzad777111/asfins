@@ -35,6 +35,10 @@ import {
   siblingAssetUrl,
   R2ConfigError,
 } from "@/lib/storage/scene-assets";
+import {
+  assertMongoReady,
+  MongoUnavailableError,
+} from "@/lib/db/client";
 
 /** Mask merge + sharp work routinely exceeds the default serverless window. */
 export const maxDuration = 120;
@@ -154,10 +158,12 @@ export async function POST(request: NextRequest) {
 
   try {
     assertSceneStorageReady();
+    // Fail before R2/mask work if Mongo cannot store scene metadata on Vercel.
+    await assertMongoReady();
     return await handleScenePost(form);
   } catch (err) {
     console.error("[admin/scenes] POST failed:", err);
-    if (err instanceof R2ConfigError) {
+    if (err instanceof R2ConfigError || err instanceof MongoUnavailableError) {
       return NextResponse.json({ error: err.message }, { status: 503 });
     }
     const message =
@@ -548,7 +554,15 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Scene id required" }, { status: 400 });
   }
 
-  const ok = await deleteScene(id);
-  if (!ok) return NextResponse.json({ error: "Scene not found" }, { status: 404 });
-  return NextResponse.json({ ok: true });
+  try {
+    await assertMongoReady();
+    const ok = await deleteScene(id);
+    if (!ok) return NextResponse.json({ error: "Scene not found" }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    if (err instanceof MongoUnavailableError) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
+    throw err;
+  }
 }
