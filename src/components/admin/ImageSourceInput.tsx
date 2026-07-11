@@ -19,6 +19,8 @@ interface ImageSourceInputProps {
   value: ImageSourceValue;
   onChange: (value: ImageSourceValue) => void;
   required?: boolean;
+  /** When true, show a Clear control whenever a preview is present. */
+  allowClear?: boolean;
 }
 
 export function emptyImageSource(): ImageSourceValue {
@@ -32,6 +34,7 @@ export function ImageSourceInput({
   value,
   onChange,
   required,
+  allowClear = true,
 }: ImageSourceInputProps) {
   const { t } = useLanguage();
   const inputId = useId();
@@ -53,8 +56,20 @@ export function ImageSourceInput({
 
   function handleFileChange(file: File | null) {
     setError(null);
+    if (value.preview?.startsWith("blob:")) {
+      URL.revokeObjectURL(value.preview);
+    }
     const preview = file ? URL.createObjectURL(file) : null;
     onChange({ ...value, file, url: "", preview, mode: "upload" });
+  }
+
+  function handleClear() {
+    setError(null);
+    if (value.preview?.startsWith("blob:")) {
+      URL.revokeObjectURL(value.preview);
+    }
+    setUrlDraft("");
+    onChange(emptyImageSource());
   }
 
   async function applyUrl() {
@@ -80,6 +95,9 @@ export function ImageSourceInput({
       }
 
       const blob = await res.blob();
+      if (value.preview?.startsWith("blob:")) {
+        URL.revokeObjectURL(value.preview);
+      }
       const preview = URL.createObjectURL(blob);
       onChange({ file: null, url: trimmed, preview, mode: "url" });
     } catch (err) {
@@ -90,6 +108,7 @@ export function ImageSourceInput({
   }
 
   const hasImage = Boolean(value.preview);
+  const canClear = allowClear && (Boolean(value.file) || Boolean(value.url) || hasImage);
 
   return (
     <div className="space-y-3">
@@ -168,9 +187,18 @@ export function ImageSourceInput({
 
       {hasImage && (
         <div className="overflow-hidden rounded-sm border border-divider bg-base">
-          <p className="border-b border-divider bg-marble px-3 py-1.5 text-xs font-medium text-charcoal">
-            {t("imagePreview")}
-          </p>
+          <div className="flex items-center justify-between gap-2 border-b border-divider bg-marble px-3 py-1.5">
+            <p className="text-xs font-medium text-charcoal">{t("imagePreview")}</p>
+            {canClear && (
+              <button
+                type="button"
+                className="wp-button wp-button--secondary wp-button--small"
+                onClick={handleClear}
+              >
+                {t("wizardClearCutout")}
+              </button>
+            )}
+          </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value.preview!}

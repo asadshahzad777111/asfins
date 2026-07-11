@@ -15,6 +15,7 @@ import { buildWhatsAppMessage, downloadDataUrl, whatsappUrl } from "@/lib/share"
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { hasDoubleShade, resolveWoodPair } from "@/lib/scenes/zones";
 import { roomLabel } from "@/lib/i18n/translations";
+import { catalogsForPalette } from "@/lib/catalogs/materials";
 import type { SceneConfig, ZonePalette } from "@/lib/scenes/types";
 import type { SceneRecord } from "@/lib/scenes/types";
 import { ApplyingOverlay } from "@/components/ApplyingOverlay";
@@ -63,12 +64,8 @@ function subscribeRail(onStoreChange: () => void) {
   };
 }
 
-function firstWoodZoneId(scene: SceneConfig): string {
+function firstZoneId(scene: SceneConfig): string {
   return scene.zones.find((z) => z.palette === "wood")?.id ?? scene.zones[0]?.id ?? "";
-}
-
-function catalogsForPalette(catalogs: Catalog[], palette: ZonePalette): Catalog[] {
-  return catalogs.filter((c) => c.swatches.some((s) => s.palette === palette));
 }
 
 function defaultCatalogForPalette(catalogs: Catalog[], palette: ZonePalette): string {
@@ -101,10 +98,13 @@ export function StudioConfigurator({
     readRailPreference,
     () => false
   );
-  const [activeZone, setActiveZone] = useState(() => firstWoodZoneId(scene));
+  const [activeZone, setActiveZone] = useState(() => firstZoneId(scene));
   const [selectedCatalogId, setSelectedCatalogId] = useState(() =>
-    defaultCatalogForPalette(catalogs, "wood")
+    defaultCatalogForPalette(catalogs, scene.zones.find((z) => z.id === firstZoneId(scene))?.palette ?? "wood")
   );
+
+  // Scene zones already come from uploaded cutouts only — never invent placeholder zones.
+  const sceneZones = scene.zones;
 
   const sceneCatalogs = useMemo(
     () =>
@@ -116,17 +116,18 @@ export function StudioConfigurator({
   );
 
   const activeZoneConfig = useMemo(
-    () => scene.zones.find((z) => z.id === activeZone),
-    [scene.zones, activeZone]
+    () => sceneZones.find((z) => z.id === activeZone) ?? sceneZones[0],
+    [sceneZones, activeZone]
   );
+  const resolvedActiveZone = activeZoneConfig?.id ?? "";
   const activePalette: ZonePalette = activeZoneConfig?.palette ?? "wood";
   const paletteCatalogs = useMemo(
     () => catalogsForPalette(sceneCatalogs, activePalette),
     [sceneCatalogs, activePalette]
   );
 
-  const showDoubleShade = hasDoubleShade(scene.zones);
-  const woodPair = useMemo(() => resolveWoodPair(scene.zones), [scene.zones]);
+  const showDoubleShade = hasDoubleShade(sceneZones);
+  const woodPair = useMemo(() => resolveWoodPair(sceneZones), [sceneZones]);
 
   // Re-pick a valid default catalog whenever the active zone's palette changes
   // (e.g. wood -> paint) — React's documented "adjust state when a prop
@@ -137,6 +138,15 @@ export function StudioConfigurator({
     if (!paletteCatalogs.some((c) => c.id === selectedCatalogId)) {
       setSelectedCatalogId(defaultCatalogForPalette(paletteCatalogs, activePalette));
     }
+  }
+
+  // If the scene changed (or active zone was removed), snap to a zone that exists.
+  const [prevSceneId, setPrevSceneId] = useState(scene.id);
+  if (prevSceneId !== scene.id) {
+    setPrevSceneId(scene.id);
+    setActiveZone(firstZoneId(scene));
+  } else if (activeZone && sceneZones.length > 0 && !sceneZones.some((z) => z.id === activeZone)) {
+    setActiveZone(sceneZones[0].id);
   }
 
   const {
@@ -154,7 +164,8 @@ export function StudioConfigurator({
   } = useConfigurator(scene);
 
   const allSwatches = sceneCatalogs.flatMap((c) => c.swatches);
-  const activeHex = state.zoneColors[activeZone] ?? "#3D4555";
+  const zoneForColors = resolvedActiveZone || activeZone;
+  const activeHex = state.zoneColors[zoneForColors] ?? "#3D4555";
   const selectedName = nameFromHex(activeHex, allSwatches);
   const materialCode = sheetCodeFromHex(activeHex, allSwatches);
 
@@ -169,9 +180,9 @@ export function StudioConfigurator({
   }, [exportPng, scene.id]);
 
   const handleWhatsApp = useCallback(() => {
-    const msg = buildWhatsAppMessage(state.zoneColors, scene.zones, allSwatches);
+    const msg = buildWhatsAppMessage(state.zoneColors, sceneZones, allSwatches);
     window.open(whatsappUrl(msg), "_blank", "noopener");
-  }, [state.zoneColors, scene.zones, allSwatches]);
+  }, [state.zoneColors, sceneZones, allSwatches]);
 
   const handleFullscreen = useCallback(() => {
     const el = previewRef.current;
@@ -192,12 +203,12 @@ export function StudioConfigurator({
 
   const handleColorPick = useCallback(
     (swatch: CatalogSwatch) => {
-      if (activeZone) {
-        void setZoneFromSwatch(activeZone, swatch);
+      if (zoneForColors) {
+        void setZoneFromSwatch(zoneForColors, swatch);
       }
       setMobileOpen(false);
     },
-    [activeZone, setZoneFromSwatch]
+    [zoneForColors, setZoneFromSwatch]
   );
 
   const toggleKitchenRail = useCallback(() => {
@@ -248,14 +259,14 @@ export function StudioConfigurator({
   const catalogPanel = (
     <>
       <StudioZonePicker
-        zones={scene.zones}
-        activeZone={activeZone}
+        zones={sceneZones}
+        activeZone={zoneForColors}
         onSelect={setActiveZone}
       />
       {showDoubleShade && (
         <div className="border-b border-divider p-3">
           <DoubleShadePicker
-            zones={scene.zones}
+            zones={sceneZones}
             zoneColors={state.zoneColors}
             upperId={woodPair.upperId}
             lowerId={woodPair.lowerId}

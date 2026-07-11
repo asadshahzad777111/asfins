@@ -1,9 +1,29 @@
 import type { Catalog, CatalogSwatch } from "./types";
+import type { ZonePalette } from "@/lib/scenes/types";
 
 export interface CatalogMaterial {
   catalogId: string;
   catalogName: string;
   swatch: CatalogSwatch;
+}
+
+/** Catalogs that have at least one swatch for the given zone palette. */
+export function catalogsForPalette(catalogs: Catalog[], palette: ZonePalette): Catalog[] {
+  return catalogs.filter((c) => c.swatches.some((s) => s.palette === palette));
+}
+
+/** Default catalog IDs for a zone palette, preferring scene-linked catalogs when provided. */
+export function defaultCatalogIdsForPalette(
+  catalogs: Catalog[],
+  palette: ZonePalette,
+  sceneCatalogIds?: string[]
+): string[] {
+  const matching = catalogsForPalette(catalogs, palette);
+  if (sceneCatalogIds?.length) {
+    const linked = matching.filter((c) => sceneCatalogIds.includes(c.id) || c.global);
+    if (linked.length) return linked.map((c) => c.id);
+  }
+  return matching.map((c) => c.id);
 }
 
 export function flattenCatalogMaterials(catalogs: Catalog[]): CatalogMaterial[] {

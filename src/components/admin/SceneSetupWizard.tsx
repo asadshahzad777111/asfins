@@ -7,8 +7,10 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { roomLabel } from "@/lib/i18n/translations";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import type { Catalog } from "@/lib/catalogs/types";
+import { catalogsForPalette } from "@/lib/catalogs/materials";
 import type { RoomCategory, SceneRecord, ZonePalette } from "@/lib/scenes/types";
 import {
+  getSingleInstanceZoneQuestions,
   getZoneQuestions,
   wizardProgress,
   type WizardFlow,
@@ -18,9 +20,14 @@ import {
   anyZoneConfigured,
   buildInitialSimpleZoneRows,
   buildSimpleZoneSubmissions,
+  clearRowUpload,
   collectRemovedZoneIds,
+  collectSceneCatalogIds,
   isRowConfigured,
   newCabinetRow,
+  reassignRowToZoneType,
+  rowHasClearableUpload,
+  syncRowCatalogsForPalette,
   type SimpleZoneRow,
 } from "@/lib/scenes/simple-upload";
 import {
@@ -85,6 +92,8 @@ function defaultFlowForScene(existing?: SceneRecord): WizardFlow {
   return "simple";
 }
 
+const PALETTE_OPTIONS: ZonePalette[] = ["paint", "wood", "tile"];
+
 export function SceneSetupWizard({
   catalogs,
   onComplete,
@@ -126,7 +135,8 @@ export function SceneSetupWizard({
   const [simpleRows, setSimpleRows] = useState<SimpleZoneRow[]>(() =>
     buildInitialSimpleZoneRows(
       (existingScene?.category ?? "kitchen") as RoomCategory,
-      existingScene
+      existingScene,
+      catalogs
     )
   );
   const [selectedCatalogs, setSelectedCatalogs] = useState<string[]>(
@@ -138,6 +148,10 @@ export function SceneSetupWizard({
   const [editSkippedMode, setEditSkippedMode] = useState(false);
 
   const questions = useMemo(() => getZoneQuestions(category as "kitchen"), [category]);
+  const singleZoneOptions = useMemo(
+    () => getSingleInstanceZoneQuestions(category as RoomCategory),
+    [category]
+  );
 
   // Reset zone selections/mapping when the category actually changes — React's
   // documented "adjust state when a prop changes" pattern (state tracker, not a
@@ -151,7 +165,7 @@ export function SceneSetupWizard({
     setAssignments({});
     setAssignmentsHydrated(true);
     setQuestionIndex(0);
-    setSimpleRows(buildInitialSimpleZoneRows(category as RoomCategory, undefined));
+    setSimpleRows(buildInitialSimpleZoneRows(category as RoomCategory, undefined, catalogs));
   }
 
   // Once the existing cutout has been re-parsed into regions, restore the
@@ -188,6 +202,10 @@ export function SceneSetupWizard({
   );
   const cabinetRows = useMemo(
     () => simpleRows.filter((r) => r.kind === "cabinet"),
+    [simpleRows]
+  );
+  const reviewRows = useMemo(
+    () => simpleRows.filter(isRowConfigured),
     [simpleRows]
   );
 
@@ -257,7 +275,7 @@ export function SceneSetupWizard({
     setMessage(null);
     if (next === "simple") {
       setSimpleRows(
-        buildInitialSimpleZoneRows(category as RoomCategory, existingScene)
+        buildInitialSimpleZoneRows(category as RoomCategory, existingScene, catalogs)
       );
     }
   }
@@ -270,6 +288,67 @@ export function SceneSetupWizard({
 
   function updateSimpleRow(key: string, patch: Partial<SimpleZoneRow>) {
     setSimpleRows((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  function replaceSimpleRow(key: string, next: SimpleZoneRow) {
+    setSimpleRows((rows) => rows.map((r) => (r.key === key ? next : r)));
+  }
+
+  async function handleZoneTypeChange(row: SimpleZoneRow, zoneId: string) {
+    if (row.id === zoneId) return;
+    const taken = simpleRows.some(
+      (r) => r.key !== row.key && !r.removed && r.id === zoneId && isRowConfigured(r)
+    );
+    if (taken) {
+      setMessage({ type: "err", text: t("wizardZoneTypeTaken") });
+      return;
+    }
+    let next = reassignRowToZoneType(row, zoneId, category, catalogs, existingScene);
+    if (!next) return;
+
+    // Changing Floor → Curtains etc. must not "keepExisting" under the new id.
+    // If we only had the old mask preview, re-attach it as a new upload for the new id.
+    const hadOnlyExistingPreview =
+      row.existedBefore &&
+      !row.source.file &&
+      !row.source.url &&
+      Boolean(row.source.preview) &&
+      row.id !== zoneId;
+
+    if (hadOnlyExistingPreview && row.source.preview) {
+      try {
+        const res = await fetch(row.source.preview);
+        if (!res.ok) throw new Error("mask fetch failed");
+        const blob = await res.blob();
+        const file = new File([blob], `${zoneId}.png`, { type: blob.type || "image/png" });
+        const preview = URL.createObjectURL(file);
+        next = {
+          ...next,
+          existedBefore: false,
+          source: { file, url: "", preview, mode: "upload" },
+        };
+      } catch {
+        next = { ...next, source: emptyImageSource(), existedBefore: false };
+        setMessage({
+          type: "warn",
+          text: t("wizardEditReuseHint"),
+        });
+      }
+    }
+
+    setMessage(null);
+    replaceSimpleRow(row.key, next);
+  }
+
+  function handlePaletteChange(row: SimpleZoneRow, palette: ZonePalette) {
+    replaceSimpleRow(row.key, syncRowCatalogsForPalette(row, palette, catalogs));
+  }
+
+  function toggleRowCatalog(row: SimpleZoneRow, catalogId: string, checked: boolean) {
+    const catalogIds = checked
+      ? [...row.catalogIds, catalogId]
+      : row.catalogIds.filter((id) => id !== catalogId);
+    updateSimpleRow(row.key, { catalogIds });
   }
 
   function handleAssignRegionToZone(regionId: number, zoneId: string) {
@@ -399,41 +478,55 @@ export function SceneSetupWizard({
     setLoading(true);
     setMessage(null);
 
-    const form = new FormData();
-    form.append("wizardMode", "simple");
-    form.append("name", name);
-    form.append("description", description);
-    form.append("category", category);
-    if (existingScene) form.append("id", existingScene.id);
-    appendImageSource(form, "basePhoto", basePhoto);
-    form.append("catalogIds", selectedCatalogs.join(","));
-    form.append("zoneCount", String(submissions.length));
+    try {
+      const form = new FormData();
+      form.append("wizardMode", "simple");
+      form.append("name", name);
+      form.append("description", description);
+      form.append("category", category);
+      if (existingScene) form.append("id", existingScene.id);
+      appendImageSource(form, "basePhoto", basePhoto);
+      const catalogIds = collectSceneCatalogIds(simpleRows);
+      form.append("catalogIds", catalogIds.join(","));
+      form.append("zoneCount", String(submissions.length));
 
-    const removed = collectRemovedZoneIds(simpleRows);
-    if (removed.length) form.append("removedZoneIds", removed.join(","));
+      const removed = collectRemovedZoneIds(simpleRows);
+      if (removed.length) form.append("removedZoneIds", removed.join(","));
 
-    submissions.forEach((sub, i) => {
-      if (sub.id) form.append(`zone_${i}_id`, sub.id);
-      form.append(`zone_${i}_label`, sub.label);
-      form.append(`zone_${i}_palette`, sub.palette);
-      if (sub.keepExisting) {
-        form.append(`zone_${i}_keepExisting`, "true");
-      } else {
-        appendImageSource(form, `zone_${i}_file`, sub.source);
+      submissions.forEach((sub, i) => {
+        if (sub.id) form.append(`zone_${i}_id`, sub.id);
+        form.append(`zone_${i}_label`, sub.label);
+        form.append(`zone_${i}_palette`, sub.palette);
+        if (sub.keepExisting) {
+          form.append(`zone_${i}_keepExisting`, "true");
+        } else {
+          appendImageSource(form, `zone_${i}_file`, sub.source);
+        }
+      });
+
+      const res = await fetch("/api/admin/scenes", { method: "POST", body: form });
+      let data: { error?: string } = {};
+      try {
+        data = (await res.json()) as { error?: string };
+      } catch {
+        data = { error: t("wizardSaveNetworkError") };
       }
-    });
 
-    const res = await fetch("/api/admin/scenes", { method: "POST", body: form });
-    const data = await res.json();
-
-    if (res.ok) {
-      setMessage({ type: "ok", text: t("saveSuccess", { name }) });
-      router.refresh();
-      onComplete();
-    } else {
-      setMessage({ type: "err", text: data.error ?? "Upload fail" });
+      if (res.ok) {
+        setMessage({ type: "ok", text: t("saveSuccess", { name }) });
+        router.refresh();
+        onComplete();
+      } else {
+        setMessage({ type: "err", text: data.error ?? t("wizardSaveFailed") });
+      }
+    } catch (err) {
+      setMessage({
+        type: "err",
+        text: err instanceof Error ? err.message : t("wizardSaveNetworkError"),
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleSaveAdvanced(force = false) {
@@ -457,36 +550,49 @@ export function SceneSetupWizard({
     setLoading(true);
     setMessage(null);
 
-    const form = new FormData();
-    form.append("wizardMode", "region");
-    form.append("name", name);
-    form.append("description", description);
-    form.append("category", category);
-    if (existingScene) form.append("id", existingScene.id);
-    appendImageSource(form, "basePhoto", basePhoto);
-    appendImageSource(form, "masterCutout", cutout);
-    form.append("catalogIds", selectedCatalogs.join(","));
-    form.append("regionMappings", JSON.stringify(assignments));
-    form.append("zoneCount", String(mappedZones.length));
+    try {
+      const form = new FormData();
+      form.append("wizardMode", "region");
+      form.append("name", name);
+      form.append("description", description);
+      form.append("category", category);
+      if (existingScene) form.append("id", existingScene.id);
+      appendImageSource(form, "basePhoto", basePhoto);
+      appendImageSource(form, "masterCutout", cutout);
+      form.append("catalogIds", selectedCatalogs.join(","));
+      form.append("regionMappings", JSON.stringify(assignments));
+      form.append("zoneCount", String(mappedZones.length));
 
-    mappedZones.forEach(([zoneId], i) => {
-      const q = questions.find((q) => q.id === zoneId);
-      form.append(`zone_${i}_id`, zoneId);
-      form.append(`zone_${i}_label`, q ? t(q.labelKey as TranslationKey) : zoneId);
-      form.append(`zone_${i}_palette`, (q?.palette ?? "wood") as ZonePalette);
-    });
+      mappedZones.forEach(([zoneId], i) => {
+        const q = questions.find((q) => q.id === zoneId);
+        form.append(`zone_${i}_id`, zoneId);
+        form.append(`zone_${i}_label`, q ? t(q.labelKey as TranslationKey) : zoneId);
+        form.append(`zone_${i}_palette`, (q?.palette ?? "wood") as ZonePalette);
+      });
 
-    const res = await fetch("/api/admin/scenes", { method: "POST", body: form });
-    const data = await res.json();
+      const res = await fetch("/api/admin/scenes", { method: "POST", body: form });
+      let data: { error?: string } = {};
+      try {
+        data = (await res.json()) as { error?: string };
+      } catch {
+        data = { error: t("wizardSaveNetworkError") };
+      }
 
-    if (res.ok) {
-      setMessage({ type: "ok", text: t("saveSuccess", { name }) });
-      router.refresh();
-      onComplete();
-    } else {
-      setMessage({ type: "err", text: data.error ?? "Upload fail" });
+      if (res.ok) {
+        setMessage({ type: "ok", text: t("saveSuccess", { name }) });
+        router.refresh();
+        onComplete();
+      } else {
+        setMessage({ type: "err", text: data.error ?? t("wizardSaveFailed") });
+      }
+    } catch (err) {
+      setMessage({
+        type: "err",
+        text: err instanceof Error ? err.message : t("wizardSaveNetworkError"),
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   function paletteLabel(palette: ZonePalette) {
@@ -633,6 +739,7 @@ export function SceneSetupWizard({
                     existedBefore={row.existedBefore}
                     removed={row.removed}
                     onChange={(source) => updateSimpleRow(row.key, { source })}
+                    onClear={() => replaceSimpleRow(row.key, clearRowUpload(row, existingScene))}
                     onRemove={
                       row.existedBefore
                         ? () =>
@@ -665,6 +772,7 @@ export function SceneSetupWizard({
                     existedBefore={row.existedBefore}
                     removed={row.removed}
                     onChange={(source) => updateSimpleRow(row.key, { source })}
+                    onClear={() => replaceSimpleRow(row.key, clearRowUpload(row, existingScene))}
                     onRemove={() => {
                       if (row.existedBefore) {
                         updateSimpleRow(row.key, { removed: true, source: emptyImageSource() });
@@ -690,7 +798,7 @@ export function SceneSetupWizard({
                 type="button"
                 className="wp-button wp-button--secondary"
                 style={{ marginTop: "0.75rem" }}
-                onClick={() => setSimpleRows((rows) => [...rows, newCabinetRow()])}
+                onClick={() => setSimpleRows((rows) => [...rows, newCabinetRow(catalogs)])}
               >
                 {t("wizardAddCabinetCutout")}
               </button>
@@ -798,7 +906,110 @@ export function SceneSetupWizard({
           </div>
         )}
 
-        {step === "review" && (
+        {step === "review" && flow === "simple" && (
+          <div className="wizard-step space-y-4">
+            <p className="wizard-step-desc">{t("wizardReviewDesc")}</p>
+            <p className="text-xs text-muted">{t("wizardReviewPerZoneHint")}</p>
+            <div className="wizard-review-rows">
+              {reviewRows.map((row) => {
+                const paletteCatalogs = catalogsForPalette(catalogs, row.palette);
+                return (
+                  <div key={row.key} className="wizard-review-row">
+                    <div className="wizard-review-row-grid">
+                      <label className="form-group">
+                        <span>{t("zoneNameLabel")}</span>
+                        {row.kind === "single" && row.id && singleZoneOptions.some((q) => q.id === row.id) ? (
+                          <select
+                            value={row.id}
+                            onChange={(e) => void handleZoneTypeChange(row, e.target.value)}
+                          >
+                            {singleZoneOptions.map((q) => {
+                              const taken = reviewRows.some(
+                                (r) => r.key !== row.key && r.id === q.id
+                              );
+                              return (
+                                <option key={q.id} value={q.id} disabled={taken}>
+                                  {t(q.labelKey)}
+                                  {taken ? ` (${t("wizardZoneInUse")})` : ""}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <input
+                            value={row.label}
+                            onChange={(e) => updateSimpleRow(row.key, { label: e.target.value })}
+                            placeholder={t("wizardCabinetNamePlaceholder")}
+                          />
+                        )}
+                      </label>
+
+                      <label className="form-group">
+                        <span>{t("wizardPaletteLabel")}</span>
+                        <select
+                          value={row.palette}
+                          onChange={(e) =>
+                            handlePaletteChange(row, e.target.value as ZonePalette)
+                          }
+                        >
+                          {PALETTE_OPTIONS.map((p) => (
+                            <option key={p} value={p}>
+                              {paletteLabel(p)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <div className="form-group">
+                        <span>{t("wizardCutoutFile")}</span>
+                        <div className="wizard-review-file">
+                          <span className="text-xs text-muted">
+                            {row.source.file?.name ||
+                              (row.existedBefore ? t("wizardKeepExistingFile") : "—")}
+                          </span>
+                          {(rowHasClearableUpload(row) ||
+                            (!row.existedBefore && row.source.preview)) && (
+                            <button
+                              type="button"
+                              className="wp-button wp-button--secondary wp-button--small"
+                              onClick={() =>
+                                replaceSimpleRow(row.key, clearRowUpload(row, existingScene))
+                              }
+                            >
+                              {t("wizardClearCutout")}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {paletteCatalogs.length > 0 && (
+                      <div className="wizard-review-catalogs">
+                        <p className="text-xs font-medium">{t("wizardZoneCatalogs")}</p>
+                        <div className="wizard-catalog-checks">
+                          {paletteCatalogs.map((c) => (
+                            <label key={c.id}>
+                              <input
+                                type="checkbox"
+                                checked={row.catalogIds.includes(c.id)}
+                                onChange={(e) =>
+                                  toggleRowCatalog(row, c.id, e.target.checked)
+                                }
+                              />
+                              {c.companyName}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {step === "review" && flow === "advanced" && (
           <div className="wizard-step space-y-4">
             <p className="wizard-step-desc">{t("wizardReviewDesc")}</p>
             <div className="wp-table-wrap">
@@ -807,35 +1018,24 @@ export function SceneSetupWizard({
                   <tr>
                     <th>{t("zoneNameLabel")}</th>
                     <th>{t("category")}</th>
-                    <th>{flow === "simple" ? t("wizardCutoutFile") : t("wizardRegions")}</th>
+                    <th>{t("wizardRegions")}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {flow === "simple"
-                    ? simpleRows.filter(isRowConfigured).map((row) => (
-                        <tr key={row.key}>
-                          <td>{rowDisplayLabel(row)}</td>
-                          <td>{paletteLabel(row.palette)}</td>
-                          <td>
-                            {row.source.file?.name ||
-                              (row.existedBefore ? t("wizardKeepExistingFile") : "—")}
-                          </td>
-                        </tr>
-                      ))
-                    : Object.entries(assignments).map(([zoneId, regionIds]) => {
-                        const q = questions.find((q) => q.id === zoneId);
-                        return (
-                          <tr key={zoneId}>
-                            <td>{q ? t(q.labelKey as TranslationKey) : zoneId}</td>
-                            <td>{q ? paletteLabel(q.palette) : "—"}</td>
-                            <td>{regionIds.map((id) => `#${id + 1}`).join(", ")}</td>
-                          </tr>
-                        );
-                      })}
+                  {Object.entries(assignments).map(([zoneId, regionIds]) => {
+                    const q = questions.find((q) => q.id === zoneId);
+                    return (
+                      <tr key={zoneId}>
+                        <td>{q ? t(q.labelKey as TranslationKey) : zoneId}</td>
+                        <td>{q ? paletteLabel(q.palette) : "—"}</td>
+                        <td>{regionIds.map((id) => `#${id + 1}`).join(", ")}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            {flow === "advanced" && skipped.size > 0 && (
+            {skipped.size > 0 && (
               <div className="wizard-skipped">
                 <p className="wp-menu-heading" style={{ padding: 0 }}>
                   {t("wizardSkippedZones")}
@@ -857,19 +1057,17 @@ export function SceneSetupWizard({
                 </div>
               </div>
             )}
-            {flow === "advanced" &&
-              parsed &&
-              getUnmappedRegionIds(parsed.regions, assignments).length > 0 && (
-                <p className="wizard-mapper-warn">
-                  {t("wizardUnmappedWarning", {
-                    count: getUnmappedRegionIds(parsed.regions, assignments).length,
-                  })}
-                </p>
-              )}
+            {parsed && getUnmappedRegionIds(parsed.regions, assignments).length > 0 && (
+              <p className="wizard-mapper-warn">
+                {t("wizardUnmappedWarning", {
+                  count: getUnmappedRegionIds(parsed.regions, assignments).length,
+                })}
+              </p>
+            )}
           </div>
         )}
 
-        {catalogs.length > 0 && step === "review" && (
+        {catalogs.length > 0 && step === "review" && flow === "advanced" && (
           <div className="wizard-catalogs">
             <p className="text-sm font-medium">{t("companyCatalogsOptional")}</p>
             <div className="wizard-catalog-checks">
@@ -898,7 +1096,12 @@ export function SceneSetupWizard({
             {t("cancel")}
           </button>
           {step !== "info" && (
-            <button type="button" className="wp-button wp-button--secondary" onClick={handleBack}>
+            <button
+              type="button"
+              className="wp-button wp-button--secondary"
+              onClick={handleBack}
+              disabled={loading}
+            >
               {t("wizardBack")}
             </button>
           )}
@@ -960,7 +1163,7 @@ export function SceneSetupWizard({
             <button
               type="button"
               className="wp-button"
-              disabled={loading}
+              disabled={loading || (flow === "simple" && reviewRows.length === 0)}
               onClick={() =>
                 void (flow === "simple" ? handleSaveSimple() : handleSaveAdvanced())
               }

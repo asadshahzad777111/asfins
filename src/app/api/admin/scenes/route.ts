@@ -98,6 +98,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Expected multipart form" }, { status: 400 });
   }
 
+  try {
+    return await handleScenePost(form);
+  } catch (err) {
+    console.error("[admin/scenes] POST failed:", err);
+    const message =
+      err instanceof Error && err.message
+        ? err.message
+        : "Scene save failed — check cutout PNGs and try again";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+async function handleScenePost(form: FormData): Promise<NextResponse> {
   const name = String(form.get("name") ?? "").trim();
   const description = String(form.get("description") ?? "").trim();
   const requestedId = String(form.get("id") ?? "").trim();
@@ -132,7 +145,8 @@ export async function POST(request: NextRequest) {
   }
 
   const zoneCount = Number(form.get("zoneCount") ?? 0);
-  const uploadedZones: { id: string; label: string; palette: ZonePalette }[] = [];
+  const uploadedZones: { id: string; label: string; palette: ZonePalette; index: number }[] =
+    [];
   let regionMappings: RegionMappings | undefined;
 
   if (wizardMode) {
@@ -150,7 +164,7 @@ export async function POST(request: NextRequest) {
       if (!zoneId || !label) continue;
       const regionIds = regionMappings[zoneId];
       if (!regionIds?.length) continue;
-      uploadedZones.push({ id: zoneId, label, palette: validPalette(palette) });
+      uploadedZones.push({ id: zoneId, label, palette: validPalette(palette), index: i });
     }
   } else if (simpleMode) {
     for (let i = 0; i < zoneCount; i++) {
@@ -170,7 +184,7 @@ export async function POST(request: NextRequest) {
       let zoneId = presetId || slugifyZoneId(label);
       if (uploadedZones.find((z) => z.id === zoneId)) zoneId = `${zoneId}-${i}`;
 
-      uploadedZones.push({ id: zoneId, label, palette: validPalette(palette) });
+      uploadedZones.push({ id: zoneId, label, palette: validPalette(palette), index: i });
     }
   } else {
     for (let i = 0; i < zoneCount; i++) {
@@ -195,7 +209,7 @@ export async function POST(request: NextRequest) {
       let zoneId = presetId || slugifyZoneId(label);
       if (uploadedZones.find((z) => z.id === zoneId)) zoneId = `${zoneId}-${i}`;
 
-      uploadedZones.push({ id: zoneId, label, palette: validPalette(palette) });
+      uploadedZones.push({ id: zoneId, label, palette: validPalette(palette), index: i });
     }
   }
 
@@ -265,14 +279,9 @@ export async function POST(request: NextRequest) {
     width = maskResult.width;
     height = maskResult.height;
   } else if (simpleMode) {
-    for (let i = 0; i < zoneCount; i++) {
-      const label = String(form.get(`zone_${i}_label`) ?? "").trim();
-      if (!label) continue;
+    for (const zone of uploadedZones) {
+      const i = zone.index;
       const keepExisting = form.get(`zone_${i}_keepExisting`) === "true";
-      const zone = uploadedZones.find(
-        (z) => z.label === label || z.id === slugifyZoneId(label)
-      );
-      if (!zone) continue;
 
       try {
         const layer = await resolveImageBuffer(
@@ -286,6 +295,11 @@ export async function POST(request: NextRequest) {
           zonesNeedingMaskGen.push(zone.id);
         } else if (keepExisting) {
           // Reuse existing mask/layer on disk — nothing to write.
+        } else {
+          return NextResponse.json(
+            { error: `Missing cutout PNG for ${zone.label}` },
+            { status: 400 }
+          );
         }
       } catch (err) {
         const message =
@@ -296,15 +310,9 @@ export async function POST(request: NextRequest) {
       }
     }
   } else {
-    for (let i = 0; i < zoneCount; i++) {
-      const label = String(form.get(`zone_${i}_label`) ?? "").trim();
+    for (const zone of uploadedZones) {
+      const i = zone.index;
       const useDirectMask = form.get(`zone_${i}_useDirectMask`) === "true";
-      if (!label) continue;
-
-      const zone = uploadedZones.find(
-        (z) => z.label === label || z.id === slugifyZoneId(label)
-      );
-      if (!zone) continue;
 
       try {
         if (useDirectMask) {
@@ -403,6 +411,7 @@ export async function POST(request: NextRequest) {
       : `${assetBase}/base.jpg`
     : existingRecord!.basePhoto;
 
+  // Simple mode drops regionMappings so studio only sees the uploaded zones.
   const record: SceneRecord = {
     id: sceneId,
     name,
@@ -414,13 +423,20 @@ export async function POST(request: NextRequest) {
     basePhoto: basePhotoPath,
     highlightMap: `${assetBase}/highlight-gloss.png`,
     nightGlow: `${assetBase}/night-glow.png`,
-    zones: buildZoneConfigs(sceneId, uploadedZones),
+    zones: buildZoneConfigs(
+      sceneId,
+      uploadedZones.map(({ id, label, palette }) => ({ id, label, palette }))
+    ),
     catalogIds,
     createdAt: existingRecord?.createdAt ?? new Date().toISOString(),
     published: true,
-    // Simple mode replaces regionMappings; advanced region mode keeps them.
     ...(wizardMode && regionMappings ? { regionMappings } : {}),
   };
+
+  // When switching from advanced→simple edit, clear stale regionMappings.
+  if (simpleMode && existingRecord?.regionMappings) {
+    delete (record as { regionMappings?: RegionMappings }).regionMappings;
+  }
 
   await addScene(record);
   return NextResponse.json({ ok: true, scene: record }, { status: 201 });
