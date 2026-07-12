@@ -24,7 +24,7 @@ interface HotspotPos {
 }
 
 /**
- * Tap dots + downward guide lines over the live preview.
+ * Tap dots over the live preview (Advanced options).
  * Positions come from mask bounding-box centres (engine getZoneBoundingBox).
  */
 export function ZoneHotspotOverlay({
@@ -62,40 +62,26 @@ export function ZoneHotspotOverlay({
       {hotspots.map((h) => {
         const active = h.zoneId === activeZone;
         return (
-          <div key={h.zoneId} className="contents">
-            {/* Guide line toward controls below the image */}
-            <div
-              className={`zone-hotspot-line absolute w-px ${
-                active ? "bg-ink/55" : "bg-ink/25"
-              }`}
-              style={{
-                left: `${h.xPct}%`,
-                top: `${h.yPct}%`,
-                height: `${Math.max(0, 100 - h.yPct)}%`,
-                transform: "translateX(-50%)",
-              }}
-              aria-hidden
-            />
-            <button
-              type="button"
-              className={`zone-hotspot-dot pointer-events-auto absolute flex items-center justify-center ${
-                active ? "zone-hotspot-dot--active" : ""
-              }`}
-              style={{
-                left: `${h.xPct}%`,
-                top: `${h.yPct}%`,
-                transform: "translate(-50%, -50%)",
-              }}
-              aria-label={t("zoneHotspotSelect", { zone: h.label })}
-              aria-pressed={active}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectZone(h.zoneId);
-              }}
-            >
-              <span className="zone-hotspot-dot__core" aria-hidden />
-            </button>
-          </div>
+          <button
+            key={h.zoneId}
+            type="button"
+            className={`zone-hotspot-dot pointer-events-auto absolute flex items-center justify-center ${
+              active ? "zone-hotspot-dot--active" : ""
+            }`}
+            style={{
+              left: `${h.xPct}%`,
+              top: `${h.yPct}%`,
+              transform: "translate(-50%, -50%)",
+            }}
+            aria-label={t("zoneHotspotSelect", { zone: h.label })}
+            aria-pressed={active}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectZone(h.zoneId);
+            }}
+          >
+            <span className="zone-hotspot-dot__core" aria-hidden />
+          </button>
         );
       })}
     </div>

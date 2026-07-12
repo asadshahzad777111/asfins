@@ -607,12 +607,7 @@ body {
   display: none;
 }
 
-/* Advanced options — tap dots + downward guide lines on live preview */
-.zone-hotspot-line {
-  pointer-events: none;
-  opacity: 0.55;
-}
-
+/* Advanced options — tap dots on live preview */
 .zone-hotspot-dot {
   width: 44px;
   height: 44px;
