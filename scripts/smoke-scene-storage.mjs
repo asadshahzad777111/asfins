@@ -202,6 +202,8 @@ const wizardSrc = readFileSync(
 assert.ok(wizardSrc.includes("mergeAssignmentsToStudioZones"), "wizard must merge on save");
 assert.ok(wizardSrc.includes("wizardStudioControl"), "review UI must show Studio control");
 assert.ok(wizardSrc.includes("buildMergedStudioTargets"), "wizard must support explicit merge");
+assert.ok(wizardSrc.includes("wizardKeepCabinetsSeparate"), "keep-separate must be available");
+assert.ok(wizardSrc.includes("initialEnabledZones") || wizardSrc.includes("sceneHasCollapsedCabinetZones"), "edit must reopen fine-grained slots for merged scenes");
 
 const zoneWizardSrc = readFileSync(
   path.join(ROOT, "src/lib/scenes/zone-wizard.ts"),
@@ -211,5 +213,16 @@ assert.ok(zoneWizardSrc.includes("mergeAssignmentsToStudioZones"));
 assert.ok(zoneWizardSrc.includes("STUDIO_CABINET_TARGETS"));
 assert.ok(zoneWizardSrc.includes("buildMergedStudioTargets"));
 assert.ok(zoneWizardSrc.includes("mergedStudioZoneId"));
+assert.ok(zoneWizardSrc.includes("export function defaultStudioZoneId"));
+assert.ok(
+  /export function defaultStudioZoneId\([\s\S]*?return slotId;/.test(zoneWizardSrc),
+  "defaultStudioZoneId must keep tagged slot identity (no auto-merge)"
+);
+assert.ok(zoneWizardSrc.includes("sceneHasCollapsedCabinetZones"));
+assert.ok(
+  zoneWizardSrc.indexOf("for (const slotId of slotIds)") <
+    zoneWizardSrc.indexOf("for (const t of STUDIO_CABINET_TARGETS)"),
+  "review dropdown must list tagged slots before merge targets"
+);
 
 console.log("smoke-scene-storage: OK");

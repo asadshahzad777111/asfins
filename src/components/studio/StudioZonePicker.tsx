@@ -21,6 +21,7 @@ const GROUP_ORDER: ZoneGroup[] = ["wood", "tile", "surface"];
 
 export function StudioZonePicker({ zones, activeZone, onSelect }: StudioZonePickerProps) {
   const { t } = useLanguage();
+  // One chip per scene.zones entry — never collapse left/right by family name.
   const grouped = groupZones(zones);
 
   return (

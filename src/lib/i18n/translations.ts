@@ -481,6 +481,8 @@ export const translations = {
     wizardStudioControl: "Studio control (customer sees)",
     wizardMergeCabinetsHint:
       "Same Studio control = one button in the Design Studio. Different controls (e.g. Lower left vs Lower right) = separate colour picks. Already-saved merged scenes need a re-map + save to split again.",
+    wizardMergedSceneResplitHint:
+      "This scene was saved with merged Lower/Upper cabinets. Re-tag left / centre / right in mapping, keep “Keep tagged parts separate”, then save — Studio will show one button per zone.",
     wizardMergeAllCabinets: "Merge all cabinet parts into Lower / Upper / Island",
     wizardKeepCabinetsSeparate: "Keep tagged parts separate",
     wizardStudioPreview: "Customer will see {count} zone(s)",
@@ -1021,6 +1023,8 @@ export const translations = {
     wizardStudioControl: "Studio control (customer ko dikhega)",
     wizardMergeCabinetsHint:
       "Same Studio control = Design Studio mein ek button. Alag controls (Lower left vs Lower right) = alag colour. Pehle se merged scenes ko split karne ke liye dubara map + save karein.",
+    wizardMergedSceneResplitHint:
+      "Yeh scene Lower/Upper merge karke save hua tha. Mapping mein left / centre / right dubara tag karein, “Tagged parts alag rakhein” rakhein, phir save — Studio mein har zone ka alag button aayega.",
     wizardMergeAllCabinets: "Saari cabinet parts ko Lower / Upper / Island mein merge karein",
     wizardKeepCabinetsSeparate: "Tagged parts alag rakhein",
     wizardStudioPreview: "Customer ko {count} zone(s) dikhengi",

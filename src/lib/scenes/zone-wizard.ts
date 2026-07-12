@@ -163,8 +163,10 @@ export function buildMergedStudioTargets(
 }
 
 /**
- * Collapse Advanced slot→region maps into Studio zone→union(regions).
- * Same target id ⇒ one customer control + one union mask on save.
+ * Map Advanced slot→region assignments onto Studio zone ids.
+ * With default targets (identity), each tagged slot stays its own zone + mask.
+ * Only when admin picks the same Studio control for multiple slots (or
+ * “Merge all…”) do regions union into one id.
  */
 export function mergeAssignmentsToStudioZones(
   assignments: Record<string, number[]>,
@@ -178,6 +180,28 @@ export function mergeAssignmentsToStudioZones(
     out[target] = Array.from(merged).sort((a, b) => a - b);
   }
   return out;
+}
+
+/** True when a saved Studio zone id is a collapsed Lower/Upper/Island control. */
+export function isCollapsedCabinetStudioId(zoneId: string): boolean {
+  return (
+    zoneId === "lower-cabinets" ||
+    zoneId === "lower-cabinets-island" ||
+    zoneId === "upper-cabinets" ||
+    zoneId === "cabinets"
+  );
+}
+
+/**
+ * Scene was saved with merged Lower/Upper (etc.) buttons — fine-grained
+ * left/centre/right slot names were not persisted as separate zone ids.
+ */
+export function sceneHasCollapsedCabinetZones(
+  zoneIds: string[],
+  mappingKeys: string[] = zoneIds
+): boolean {
+  const ids = zoneIds.length ? zoneIds : mappingKeys;
+  return ids.some((id) => isCollapsedCabinetStudioId(id));
 }
 
 export function resolveStudioZoneMeta(
@@ -203,35 +227,35 @@ export function resolveStudioZoneMeta(
   };
 }
 
-/** Dropdown options for Advanced review: shared cabinet targets + keep-as-mapped slots. */
+/**
+ * Dropdown options for Advanced review.
+ * Order: each tagged slot’s own id first (default), then optional merge targets
+ * (Lower / Upper / Island) so the select never “looks like” merge-by-default.
+ */
 export function studioTargetOptionsForSlots(
   slotIds: string[],
   category: RoomCategory
 ): StudioZoneTarget[] {
   const byId = new Map<string, StudioZoneTarget>();
-  for (const t of STUDIO_CABINET_TARGETS) byId.set(t.id, t);
+  const ordered: StudioZoneTarget[] = [];
+
+  const add = (t: StudioZoneTarget) => {
+    if (byId.has(t.id)) return;
+    byId.set(t.id, t);
+    ordered.push(t);
+  };
+
   for (const slotId of slotIds) {
-    const meta = resolveStudioZoneMeta(slotId, category);
-    if (!byId.has(meta.id)) {
-      byId.set(meta.id, {
-        id: meta.id,
-        labelKey: meta.labelKey,
-        palette: meta.palette,
-        zoneGroup: meta.zoneGroup,
-      });
-    }
-    // Also offer keeping the fine-grained slot as its own Studio control.
-    if (!byId.has(slotId)) {
-      const q = getZoneQuestionById(category, slotId);
-      byId.set(slotId, {
-        id: slotId,
-        labelKey: q?.labelKey ?? "defaultZoneLabel",
-        palette: q?.palette ?? "wood",
-        zoneGroup: q?.zoneGroup ?? "wood",
-      });
-    }
+    const q = getZoneQuestionById(category, slotId);
+    add({
+      id: slotId,
+      labelKey: q?.labelKey ?? resolveStudioZoneMeta(slotId, category).labelKey,
+      palette: q?.palette ?? resolveStudioZoneMeta(slotId, category).palette,
+      zoneGroup: q?.zoneGroup ?? resolveStudioZoneMeta(slotId, category).zoneGroup,
+    });
   }
-  return Array.from(byId.values());
+  for (const t of STUDIO_CABINET_TARGETS) add(t);
+  return ordered;
 }
 
 export function wizardProgress(

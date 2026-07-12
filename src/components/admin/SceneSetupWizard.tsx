@@ -14,8 +14,10 @@ import {
   buildMergedStudioTargets,
   getSingleInstanceZoneQuestions,
   getZoneQuestions,
+  isCollapsedCabinetStudioId,
   mergeAssignmentsToStudioZones,
   resolveStudioZoneMeta,
+  sceneHasCollapsedCabinetZones,
   studioTargetOptionsForSlots,
   wizardProgress,
   type WizardFlow,
@@ -97,6 +99,39 @@ function defaultZonesForCategory(category: string): Set<string> {
   return defaults;
 }
 
+/**
+ * Checklist ids for Advanced edit. Merged Lower/Upper scenes must open the
+ * fine-grained left/centre/right slots so admin can re-tag and re-save split.
+ */
+function initialEnabledZones(existing: SceneRecord | undefined, category: string): Set<string> {
+  if (!existing) return defaultZonesForCategory(category);
+
+  const questionIds = new Set(getZoneQuestions(category as RoomCategory).map((q) => q.id));
+  const mappingKeys = Object.keys(existing.regionMappings ?? {});
+  const zoneIds = existing.zones.map((z) => z.id);
+  const collapsed = sceneHasCollapsedCabinetZones(zoneIds, mappingKeys);
+
+  if (existing.regionMappings && collapsed) {
+    const enabled = defaultZonesForCategory(category);
+    for (const key of mappingKeys) {
+      if (questionIds.has(key)) enabled.add(key);
+      // Keep surface/tile merge keys that are real question ids (floor, curtains…).
+      if (!isCollapsedCabinetStudioId(key) && questionIds.has(key)) enabled.add(key);
+    }
+    for (const z of existing.zones) {
+      if (questionIds.has(z.id)) enabled.add(z.id);
+    }
+    return enabled;
+  }
+
+  const fromScene = new Set<string>();
+  for (const id of [...zoneIds, ...mappingKeys]) {
+    if (questionIds.has(id)) fromScene.add(id);
+  }
+  if (fromScene.size > 0) return fromScene;
+  return defaultZonesForCategory(category);
+}
+
 function appendImageSource(form: FormData, key: string, source: ImageSourceValue) {
   if (source.file) {
     form.append(key, source.file);
@@ -152,7 +187,7 @@ export function SceneSetupWizard({
   const [studioTargetOverrides, setStudioTargetOverrides] = useState<Record<string, string>>({});
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [enabledZones, setEnabledZones] = useState<Set<string>>(() =>
-    existingScene ? new Set(existingScene.zones.map((z) => z.id)) : defaultZonesForCategory(category)
+    initialEnabledZones(existingScene, category)
   );
   const [simpleRows, setSimpleRows] = useState<SimpleZoneRow[]>(() =>
     buildInitialSimpleZoneRows(
@@ -736,7 +771,8 @@ export function SceneSetupWizard({
       return;
     }
 
-    // Merge left/centre/right (etc.) into shared Studio zone ids → one union mask each.
+    // Identity targets → one SceneZoneConfig + mask per tagged slot.
+    // Only collapses when admin explicitly maps multiple slots to one Studio control.
     const studioAssignments = mergeAssignmentsToStudioZones(assignments, studioTargets);
     const studioZones = Object.entries(studioAssignments).filter(([, ids]) => ids.length > 0);
     if (studioZones.length === 0) {
@@ -1283,7 +1319,21 @@ export function SceneSetupWizard({
           <div className="wizard-step space-y-4">
             <p className="wizard-step-desc">{t("wizardReviewDesc")}</p>
             <p className="text-sm text-[var(--muted)]">{t("wizardMergeCabinetsHint")}</p>
+            {existingScene &&
+              sceneHasCollapsedCabinetZones(
+                existingScene.zones.map((z) => z.id),
+                Object.keys(existingScene.regionMappings ?? {})
+              ) && (
+                <p className="wizard-mapper-warn">{t("wizardMergedSceneResplitHint")}</p>
+              )}
             <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="wp-button wp-button--secondary wp-button--small"
+                onClick={() => setStudioTargetOverrides({})}
+              >
+                {t("wizardKeepCabinetsSeparate")}
+              </button>
               <button
                 type="button"
                 className="wp-button wp-button--secondary wp-button--small"
@@ -1292,13 +1342,6 @@ export function SceneSetupWizard({
                 }
               >
                 {t("wizardMergeAllCabinets")}
-              </button>
-              <button
-                type="button"
-                className="wp-button wp-button--secondary wp-button--small"
-                onClick={() => setStudioTargetOverrides({})}
-              >
-                {t("wizardKeepCabinetsSeparate")}
               </button>
               <span className="text-sm self-center text-[var(--muted)]">
                 {t("wizardStudioPreview", {
