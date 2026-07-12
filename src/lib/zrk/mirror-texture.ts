@@ -1,6 +1,7 @@
-import { mkdir, access } from "fs/promises";
+﻿import { mkdir, access } from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import { writeDemirroredThumb } from "@/lib/zrk/demirror-texture";
 
 const ROOT = process.cwd();
 const OUT_DIR = path.join(ROOT, "public/catalog-textures/zrk");
@@ -60,15 +61,14 @@ export async function mirrorZrkTexture(
   const buf = Buffer.from(await res.arrayBuffer());
 
   if (!hasBoth || opts?.force) {
+    // Full sheet stays book-matched for seamless studio tiling.
     await sharp(buf)
       .resize(768, 768, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 84 })
       .toFile(fullDisk);
 
-    await sharp(buf)
-      .resize(320, 320, { fit: "cover" })
-      .webp({ quality: 78 })
-      .toFile(thumbDisk);
+    // Catalog thumb: crop away mirror seam when present.
+    await writeDemirroredThumb(buf, thumbDisk, 320);
   }
 
   return { code, thumbUrl, imageUrl, remoteUrl };

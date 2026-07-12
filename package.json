@@ -14,6 +14,7 @@
     "setup-kitchen-modern": "node scripts/setup-kitchen-modern.mjs",
     "photopea-cutout": "node scripts/photopea-cutout-kitchen.mjs",
     "mirror-zrk": "node scripts/mirror-zrk-textures.mjs",
+    "fix-zrk-thumbs": "node scripts/fix-zrk-mirrored-thumbs.mjs",
     "sync-zrk": "node scripts/sync-zrk-mdf.mjs",
     "seed-mongo": "node scripts/seed-mongo.mjs",
     "prepare-zrk": "node scripts/prepare-zrk-local.mjs",

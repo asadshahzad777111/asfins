@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -86,7 +86,7 @@ export function MaterialDetailClient({ material }: MaterialDetailClientProps) {
                   name={swatch.name}
                   className="h-full w-full"
                   rounded="none"
-                  preferFull
+                  preferFull={false}
                   priority
                 />
               </div>
@@ -129,7 +129,7 @@ export function MaterialDetailClient({ material }: MaterialDetailClientProps) {
                   rel="noopener noreferrer"
                   className="btn-technical"
                 >
-                  {t("technicalSheet")} ↓
+                  {t("technicalSheet")} â†“
                 </a>
               )}
               <Link href="/gallery/kitchen" className="btn-primary">
@@ -184,7 +184,7 @@ export function MaterialDetailClient({ material }: MaterialDetailClientProps) {
               href="/gallery/kitchen"
               className="btn-primary shrink-0 self-start sm:self-center"
             >
-              {t("startVisualizing")} →
+              {t("startVisualizing")} â†’
             </Link>
           </div>
         </motion.div>
