@@ -3,10 +3,15 @@
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
-export function QuoteInterestForm() {
+interface QuoteInterestFormProps {
+  source?: "contact" | "studio" | "other";
+}
+
+export function QuoteInterestForm({ source = "contact" }: QuoteInterestFormProps) {
   const { t } = useLanguage();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "ok" | "error">(
     "idle"
@@ -23,14 +28,16 @@ export function QuoteInterestForm() {
         body: JSON.stringify({
           name: name.trim(),
           phone: phone.trim(),
-          message:
-            message.trim() || "Quote interest from contact page",
+          email: email.trim() || undefined,
+          message: message.trim() || "Quote interest from contact page",
+          source,
         }),
       });
       if (!res.ok) throw new Error("failed");
       setStatus("ok");
       setName("");
       setPhone("");
+      setEmail("");
       setMessage("");
     } catch {
       setStatus("error");
@@ -55,6 +62,7 @@ export function QuoteInterestForm() {
           id="quote-name"
           type="text"
           required
+          maxLength={120}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full border border-ink bg-paper px-3 py-3 text-[14px] focus:outline-none"
@@ -69,10 +77,25 @@ export function QuoteInterestForm() {
           id="quote-phone"
           type="tel"
           required
+          maxLength={30}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           className="w-full border border-ink bg-paper px-3 py-3 text-[14px] focus:outline-none"
           autoComplete="tel"
+        />
+      </div>
+      <div>
+        <label htmlFor="quote-email" className="mb-1.5 block text-[12px] uppercase tracking-[0.12em] text-muted">
+          {t("quoteFormEmail")}
+        </label>
+        <input
+          id="quote-email"
+          type="email"
+          maxLength={160}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full border border-ink bg-paper px-3 py-3 text-[14px] focus:outline-none"
+          autoComplete="email"
         />
       </div>
       <div>
@@ -82,6 +105,7 @@ export function QuoteInterestForm() {
         <textarea
           id="quote-message"
           rows={4}
+          maxLength={2000}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           className="w-full resize-y border border-ink bg-paper px-3 py-3 text-[14px] focus:outline-none"

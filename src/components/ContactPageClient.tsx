@@ -42,7 +42,10 @@ export function ContactPageClient() {
                   rel="noopener noreferrer"
                   className="nav-underline mt-2 inline-block text-[15px]"
                 >
-                  {t("chatOnWhatsApp")} →
+                  {SHOP.whatsapp.startsWith("92")
+                    ? `0${SHOP.whatsapp.slice(2)}`
+                    : SHOP.whatsapp}{" "}
+                  · {t("chatOnWhatsApp")} →
                 </a>
               </div>
               {SHOP.email && (

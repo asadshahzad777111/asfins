@@ -85,3 +85,44 @@ export async function addInquiry(inquiry: Inquiry): Promise<void> {
   inquiries.unshift(inquiry);
   await writeJsonInquiries(inquiries);
 }
+
+export async function updateInquiry(
+  id: string,
+  patch: Partial<Pick<Inquiry, "status" | "staffNote">>
+): Promise<Inquiry | null> {
+  const updatedAt = new Date().toISOString();
+  const col = await getCollection(COLLECTIONS.inquiries);
+  if (col) {
+    const result = await col.findOneAndUpdate(
+      { id },
+      { $set: { ...patch, updatedAt } },
+      { returnDocument: "after" }
+    );
+    if (!result) return null;
+    const { _id, ...rest } = result as Inquiry & { _id?: unknown };
+    return rest as Inquiry;
+  }
+
+  assertJsonWriteAllowed("data/inquiries.json");
+  const inquiries = await readJsonInquiries();
+  const idx = inquiries.findIndex((i) => i.id === id);
+  if (idx < 0) return null;
+  inquiries[idx] = { ...inquiries[idx], ...patch, updatedAt };
+  await writeJsonInquiries(inquiries);
+  return inquiries[idx];
+}
+
+export async function deleteInquiry(id: string): Promise<boolean> {
+  const col = await getCollection(COLLECTIONS.inquiries);
+  if (col) {
+    const result = await col.deleteOne({ id });
+    return result.deletedCount > 0;
+  }
+
+  assertJsonWriteAllowed("data/inquiries.json");
+  const inquiries = await readJsonInquiries();
+  const next = inquiries.filter((i) => i.id !== id);
+  if (next.length === inquiries.length) return false;
+  await writeJsonInquiries(next);
+  return true;
+}

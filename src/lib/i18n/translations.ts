@@ -42,6 +42,7 @@ export const translations = {
     quoteFormHeading: "Request a quote",
     quoteFormName: "Name",
     quoteFormPhone: "Phone / WhatsApp",
+    quoteFormEmail: "Email (optional)",
     quoteFormMessage: "Message (optional)",
     quoteFormSubmit: "Send interest",
     quoteFormSending: "Sending…",
@@ -596,8 +597,14 @@ export const translations = {
     adminInquiriesTitle: "Inquiries / Orders",
     adminInquiriesSubtitle: "WhatsApp inquiries and customer messages are logged here",
     emptyInquiries:
-      "No inquiries yet. When a customer sends a design via WhatsApp, it will appear here.",
+      "No inquiries yet. Contact form quotes and customer messages appear here.",
     sceneLabel: "Scene: {name}",
+    inquiryMarkRead: "Mark read",
+    inquiryMarkReplied: "Mark replied",
+    inquiryArchive: "Archive",
+    inquiryDelete: "Delete",
+    deleteInquiryConfirm: "Delete this inquiry?",
+    inquiryUpdateError: "Could not update inquiry. Try again.",
   },
   ur: {
     gallery: "Gallery",
@@ -638,6 +645,7 @@ export const translations = {
     quoteFormHeading: "Quote request",
     quoteFormName: "Name",
     quoteFormPhone: "Phone / WhatsApp",
+    quoteFormEmail: "Email (optional)",
     quoteFormMessage: "Message (optional)",
     quoteFormSubmit: "Bhejein",
     quoteFormSending: "Bhej rahe hain…",
@@ -1176,8 +1184,14 @@ export const translations = {
     adminInquiriesSubtitle:
       "WhatsApp inquiries aur customer messages — yahan log hoti hain",
     emptyInquiries:
-      "Abhi koi inquiry nahi. Jab customer WhatsApp se design bhejega, yahan dikhegi.",
+      "Abhi koi inquiry nahi. Contact form quotes aur messages yahan dikhengi.",
     sceneLabel: "Scene: {name}",
+    inquiryMarkRead: "Read mark karein",
+    inquiryMarkReplied: "Replied mark karein",
+    inquiryArchive: "Archive",
+    inquiryDelete: "Delete",
+    deleteInquiryConfirm: "Yeh inquiry delete karein?",
+    inquiryUpdateError: "Update nahi hua. Dobara try karein.",
   },
 } as const;
 

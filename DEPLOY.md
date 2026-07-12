@@ -14,7 +14,12 @@ Domain: **asfins.com** · Brand: **Aspire Interiors (ASFins)**
 | Variable | Value |
 |----------|--------|
 | `NEXT_PUBLIC_SITE_URL` | `https://asfins.com` |
-| `NEXT_PUBLIC_WHATSAPP` | `92XXXXXXXXXX` (apna number) |
+| `NEXT_PUBLIC_WHATSAPP` | `923039227000` (same shop number as AsFix) |
+| `SHOP_WHATSAPP_INTL` | `923039227000` (optional server alias) |
+| `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Optional Meta Cloud API for inquiry alerts |
+| `RESEND_API_KEY` | From [resend.com](https://resend.com) → API Keys (same account OK) |
+| `RESEND_FROM` | `"ASFins" <noreply@asfins.com>` after domain verify (or `onboarding@resend.dev` for tests) |
+| `ADMIN_NOTIFY_EMAIL` | Staff inbox for new quote emails (e.g. `hello@asfins.com`) |
 | `ADMIN_PASSWORD` | strong password |
 | `ADMIN_JWT_SECRET` | long random string |
 | `MONGODB_URI` | Atlas connection string |
