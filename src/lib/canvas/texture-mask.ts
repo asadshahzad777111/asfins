@@ -78,16 +78,105 @@ export function computeTextureTileSize(
   return { tileW: sheetShortPx, tileH: sheetLongPx };
 }
 
+type BookMatchAxes = { leftRight: boolean; topBottom: boolean };
+
 /**
- * Bake one tile, then force opposite edges to match.
- * Stops createPattern / tile joins from showing a bright AA hairline
- * when the source swatch is not perfectly seamless (common for solid hex webps).
+ * Detect book-matched (mirrored) seamless sheets — same idea as
+ * `demirror-texture.ts`, but on a canvas probe so studio can tile with
+ * alternating flips instead of showing the center mirror fold as a seam.
  */
-function bakeSealedTile(
+function detectBookMatchAxes(
+  texture: HTMLImageElement,
+  crop: TextureCropRect
+): BookMatchAxes {
+  const probeW = 64;
+  const probeH = 64;
+  const probe = document.createElement("canvas");
+  probe.width = probeW;
+  probe.height = probeH;
+  const pctx = probe.getContext("2d", { willReadFrequently: true })!;
+  pctx.drawImage(
+    texture,
+    crop.sx,
+    crop.sy,
+    crop.sw,
+    crop.sh,
+    0,
+    0,
+    probeW,
+    probeH
+  );
+  const { data } = pctx.getImageData(0, 0, probeW, probeH);
+  const pixels = data.length / 4;
+
+  let mean = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    mean += (data[i] + data[i + 1] + data[i + 2]) / 3;
+  }
+  mean /= pixels;
+
+  let varSum = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const v = (data[i] + data[i + 1] + data[i + 2]) / 3;
+    varSum += (v - mean) ** 2;
+  }
+  const std = Math.sqrt(varSum / pixels);
+
+  const mid = Math.floor(probeW / 2);
+  const midY = Math.floor(probeH / 2);
+
+  let lrSum = 0;
+  let lrN = 0;
+  for (let y = 0; y < probeH; y++) {
+    for (let x = 0; x < mid; x++) {
+      const li = (y * probeW + x) * 4;
+      const ri = (y * probeW + (probeW - 1 - x)) * 4;
+      lrSum +=
+        (Math.abs(data[li] - data[ri]) +
+          Math.abs(data[li + 1] - data[ri + 1]) +
+          Math.abs(data[li + 2] - data[ri + 2])) /
+        3;
+      lrN++;
+    }
+  }
+
+  let tbSum = 0;
+  let tbN = 0;
+  for (let y = 0; y < midY; y++) {
+    for (let x = 0; x < probeW; x++) {
+      const ti = (y * probeW + x) * 4;
+      const bi = ((probeH - 1 - y) * probeW + x) * 4;
+      tbSum +=
+        (Math.abs(data[ti] - data[bi]) +
+          Math.abs(data[ti + 1] - data[bi + 1]) +
+          Math.abs(data[ti + 2] - data[bi + 2])) /
+        3;
+      tbN++;
+    }
+  }
+
+  const lr = lrSum / Math.max(1, lrN);
+  const tb = tbSum / Math.max(1, tbN);
+  const threshold = Math.max(10, std * 0.9);
+  // Near-solid swatches always "match" themselves — skip those.
+  const textured = std >= 8;
+
+  return {
+    leftRight: textured && lr < threshold,
+    topBottom: textured && tb < threshold,
+  };
+}
+
+/**
+ * Bake one tile from a source rect. Optionally seal opposite edges for
+ * non-bookmatched sources (solid hex webps with noisy borders).
+ */
+function bakeTile(
   texture: HTMLImageElement,
   tileW: number,
   tileH: number,
-  crop: TextureCropRect | null
+  src: TextureCropRect,
+  sealEdges: boolean
 ): HTMLCanvasElement {
   const tile = document.createElement("canvas");
   tile.width = tileW;
@@ -95,39 +184,58 @@ function bakeSealedTile(
   const tileCtx = tile.getContext("2d", { willReadFrequently: true })!;
   tileCtx.imageSmoothingEnabled = true;
   tileCtx.imageSmoothingQuality = "high";
-  if (crop) {
-    tileCtx.drawImage(
-      texture,
-      crop.sx,
-      crop.sy,
-      crop.sw,
-      crop.sh,
-      0,
-      0,
-      tileW,
-      tileH
-    );
-  } else {
-    tileCtx.drawImage(texture, 0, 0, tileW, tileH);
-  }
+  tileCtx.drawImage(
+    texture,
+    src.sx,
+    src.sy,
+    src.sw,
+    src.sh,
+    0,
+    0,
+    tileW,
+    tileH
+  );
 
-  // Mirror a few edge pixels so overlapped joins match (solid hex webps
-  // often have compression noise on the border that reads as a seam line).
-  const seal = Math.min(TILE_OVERLAP_PX, Math.floor(tileW / 4), Math.floor(tileH / 4));
-  if (seal >= 1 && tileW > seal * 2 && tileH > seal * 2) {
-    const leftStrip = tileCtx.getImageData(0, 0, seal, tileH);
-    tileCtx.putImageData(leftStrip, tileW - seal, 0);
-    const topStrip = tileCtx.getImageData(0, 0, tileW, seal);
-    tileCtx.putImageData(topStrip, 0, tileH - seal);
+  if (sealEdges) {
+    const seal = Math.min(
+      TILE_OVERLAP_PX,
+      Math.floor(tileW / 4),
+      Math.floor(tileH / 4)
+    );
+    if (seal >= 1 && tileW > seal * 2 && tileH > seal * 2) {
+      const leftStrip = tileCtx.getImageData(0, 0, seal, tileH);
+      tileCtx.putImageData(leftStrip, tileW - seal, 0);
+      const topStrip = tileCtx.getImageData(0, 0, tileW, seal);
+      tileCtx.putImageData(topStrip, 0, tileH - seal);
+    }
   }
 
   return tile;
 }
 
+function blitTile(
+  ctx: CanvasRenderingContext2D,
+  tile: HTMLCanvasElement,
+  x: number,
+  y: number,
+  flipX: boolean,
+  flipY: boolean
+): void {
+  if (!flipX && !flipY) {
+    ctx.drawImage(tile, x, y);
+    return;
+  }
+  ctx.save();
+  ctx.translate(x + (flipX ? tile.width : 0), y + (flipY ? tile.height : 0));
+  ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
+  ctx.drawImage(tile, 0, 0);
+  ctx.restore();
+}
+
 /**
  * Fill with opaque overlapping tiles at integer coords.
- * createPattern('repeat') still leaves 1px AA gaps on many browsers —
- * especially visible on near-solid charcoal swatches and large scenes.
+ * Book-matched sheets use natural-grain cells + alternating flips so the
+ * center mirror fold never appears as a sheet join.
  */
 function drawTiledTexture(
   ctx: CanvasRenderingContext2D,
@@ -141,29 +249,58 @@ function drawTiledTexture(
   const fullH = texture.naturalHeight || texture.height;
   if (fullW < 1 || fullH < 1) return;
 
-  const crop = textureUrl ? galleryTextureCrop(textureUrl, fullW, fullH) : null;
-  const srcW = crop?.sw ?? fullW;
-  const srcH = crop?.sh ?? fullH;
+  const chromeCrop = textureUrl
+    ? galleryTextureCrop(textureUrl, fullW, fullH, texture)
+    : null;
+  const base: TextureCropRect = chromeCrop ?? {
+    sx: 0,
+    sy: 0,
+    sw: fullW,
+    sh: fullH,
+  };
 
-  const { tileW, tileH } = computeTextureTileSize(
-    srcW,
-    srcH,
+  // Sheet size from the full (chrome-cropped) frame so physical scale stays stable.
+  const sheetSize = computeTextureTileSize(
+    base.sw,
+    base.sh,
     width,
     height,
     textureScale
   );
-  const tile = bakeSealedTile(texture, tileW, tileH, crop);
 
-  const stepX = Math.max(1, tileW - TILE_OVERLAP_PX);
-  const stepY = Math.max(1, tileH - TILE_OVERLAP_PX);
+  const axes = detectBookMatchAxes(texture, base);
+  const src: TextureCropRect = {
+    sx: base.sx,
+    sy: base.sy,
+    sw: axes.leftRight ? Math.max(1, Math.floor(base.sw / 2)) : base.sw,
+    sh: axes.topBottom ? Math.max(1, Math.floor(base.sh / 2)) : base.sh,
+  };
+
+  // Natural-grain cell is half a book-matched sheet on mirrored axes.
+  const tileW = axes.leftRight
+    ? Math.max(20, Math.floor(sheetSize.tileW / 2))
+    : sheetSize.tileW;
+  const tileH = axes.topBottom
+    ? Math.max(20, Math.floor(sheetSize.tileH / 2))
+    : sheetSize.tileH;
+
+  const bookMatched = axes.leftRight || axes.topBottom;
+  const tile = bakeTile(texture, tileW, tileH, src, !bookMatched);
+
+  // Book-match flips already meet edge-to-edge; overlap would double-draw.
+  const overlap = bookMatched ? 0 : TILE_OVERLAP_PX;
+  const stepX = Math.max(1, tileW - overlap);
+  const stepY = Math.max(1, tileH - overlap);
 
   ctx.save();
   // Integer blits only — smoothing here reintroduces soft gaps at joins.
   ctx.imageSmoothingEnabled = false;
 
-  for (let y = 0; y < height; y += stepY) {
-    for (let x = 0; x < width; x += stepX) {
-      ctx.drawImage(tile, x, y);
+  for (let y = 0, row = 0; y < height; y += stepY, row++) {
+    for (let x = 0, col = 0; x < width; x += stepX, col++) {
+      const flipX = bookMatched && axes.leftRight && col % 2 === 1;
+      const flipY = bookMatched && axes.topBottom && row % 2 === 1;
+      blitTile(ctx, tile, x, y, flipX, flipY);
     }
   }
 
@@ -171,17 +308,42 @@ function drawTiledTexture(
   const lastX = Math.max(0, width - tileW);
   const lastY = Math.max(0, height - tileH);
   if (lastX % stepX !== 0) {
-    for (let y = 0; y < height; y += stepY) {
-      ctx.drawImage(tile, lastX, y);
+    const col = Math.floor(lastX / stepX);
+    for (let y = 0, row = 0; y < height; y += stepY, row++) {
+      blitTile(
+        ctx,
+        tile,
+        lastX,
+        y,
+        bookMatched && axes.leftRight && col % 2 === 1,
+        bookMatched && axes.topBottom && row % 2 === 1
+      );
     }
   }
   if (lastY % stepY !== 0) {
-    for (let x = 0; x < width; x += stepX) {
-      ctx.drawImage(tile, x, lastY);
+    const row = Math.floor(lastY / stepY);
+    for (let x = 0, col = 0; x < width; x += stepX, col++) {
+      blitTile(
+        ctx,
+        tile,
+        x,
+        lastY,
+        bookMatched && axes.leftRight && col % 2 === 1,
+        bookMatched && axes.topBottom && row % 2 === 1
+      );
     }
   }
   if (lastX % stepX !== 0 || lastY % stepY !== 0) {
-    ctx.drawImage(tile, lastX, lastY);
+    const col = Math.floor(lastX / stepX);
+    const row = Math.floor(lastY / stepY);
+    blitTile(
+      ctx,
+      tile,
+      lastX,
+      lastY,
+      bookMatched && axes.leftRight && col % 2 === 1,
+      bookMatched && axes.topBottom && row % 2 === 1
+    );
   }
 
   ctx.restore();
