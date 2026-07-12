@@ -607,6 +607,57 @@ body {
   display: none;
 }
 
+/* Advanced options — tap dots + downward guide lines on live preview */
+.zone-hotspot-line {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.zone-hotspot-dot {
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.zone-hotspot-dot__core {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-paper);
+  border: 2px solid var(--color-ink);
+  box-shadow: 0 1px 4px rgba(28, 20, 16, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.zone-hotspot-dot--active .zone-hotspot-dot__core {
+  background: var(--color-ink);
+  border-color: var(--color-paper);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px rgba(28, 20, 16, 0.2), 0 1px 4px rgba(28, 20, 16, 0.35);
+}
+
+.zone-hotspot-dot:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.zone-hotspot-dot:hover .zone-hotspot-dot__core {
+  transform: scale(1.1);
+}
+
+@media (min-width: 1024px) {
+  .zone-hotspot-dot {
+    width: 36px;
+    height: 36px;
+  }
+}
+
 .studio-panel-label {
   font-size: 0.625rem;
   text-transform: uppercase;

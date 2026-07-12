@@ -9,6 +9,7 @@ import { ToggleSwitch } from "@/components/ToggleSwitch";
 import { SceneSidebar } from "@/components/studio/SceneSidebar";
 import { StudioToolbar } from "@/components/studio/StudioToolbar";
 import { StudioZonePicker } from "@/components/studio/StudioZonePicker";
+import { ZoneHotspotOverlay } from "@/components/studio/ZoneHotspotOverlay";
 import { MaterialCatalogGrid } from "@/components/studio/MaterialCatalogGrid";
 import { nameFromHex, sheetCodeFromHex } from "@/lib/estimate";
 import { buildWhatsAppMessage, downloadDataUrl, whatsappUrl } from "@/lib/share";
@@ -99,6 +100,7 @@ export function StudioConfigurator({
     () => false
   );
   const [activeZone, setActiveZone] = useState(() => firstZoneId(scene));
+  const [advancedOptions, setAdvancedOptions] = useState(false);
   const [selectedCatalogId, setSelectedCatalogId] = useState(() =>
     defaultCatalogForPalette(catalogs, scene.zones.find((z) => z.id === firstZoneId(scene))?.palette ?? "wood")
   );
@@ -161,6 +163,7 @@ export function StudioConfigurator({
     setLighting,
     exportPng,
     resetColors,
+    getZoneBoundingBox,
   } = useConfigurator(scene);
 
   const allSwatches = sceneCatalogs.flatMap((c) => c.swatches);
@@ -209,6 +212,17 @@ export function StudioConfigurator({
       setMobileOpen(false);
     },
     [zoneForColors, setZoneFromSwatch]
+  );
+
+  const handleHotspotSelect = useCallback(
+    (zoneId: string) => {
+      setActiveZone(zoneId);
+      // Mobile: open material sheet so the customer can pick colour for that zone.
+      if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+        setMobileOpen(true);
+      }
+    },
+    []
   );
 
   const toggleKitchenRail = useCallback(() => {
@@ -357,15 +371,33 @@ export function StudioConfigurator({
               </button>
               <p className="studio-panel-label">{t("livePreview")}</p>
             </div>
-            <motion.span
-              key={scene.id}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease }}
-              className="truncate font-mono-data text-[9px] uppercase tracking-wider text-muted"
-            >
-              {scene.name}
-            </motion.span>
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              {sceneZones.length > 0 && (
+                <label
+                  className="flex shrink-0 cursor-pointer items-center gap-1.5"
+                  title={t("advancedOptionsHint")}
+                >
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5 accent-ink"
+                    checked={advancedOptions}
+                    onChange={(e) => setAdvancedOptions(e.target.checked)}
+                  />
+                  <span className="font-mono-data text-[9px] uppercase tracking-wider text-muted">
+                    {t("advancedOptions")}
+                  </span>
+                </label>
+              )}
+              <motion.span
+                key={scene.id}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, ease }}
+                className="truncate font-mono-data text-[9px] uppercase tracking-wider text-muted"
+              >
+                {scene.name}
+              </motion.span>
+            </div>
           </div>
 
           <div className="flex flex-1 items-center justify-center overflow-hidden p-3 sm:p-5">
@@ -378,6 +410,16 @@ export function StudioConfigurator({
               className="studio-preview-frame relative w-full max-w-5xl overflow-hidden border border-divider bg-marble shadow-[0_20px_60px_rgba(28,20,16,0.1)]"
             >
               <canvas ref={canvasRef} className="block h-auto w-full" />
+              {advancedOptions && (
+                <ZoneHotspotOverlay
+                  scene={scene}
+                  zones={sceneZones}
+                  activeZone={zoneForColors}
+                  ready={ready}
+                  getZoneBoundingBox={getZoneBoundingBox}
+                  onSelectZone={handleHotspotSelect}
+                />
+              )}
               <ApplyingOverlay show={applying} />
               {!ready && !error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-base/90">

@@ -126,8 +126,8 @@ export const CABINET_ZONE_PRESETS: {
   { id: "lower-cabinets-island", labelKey: "zoneLowerCabinetsIsland" },
   { id: "island", labelKey: "zoneIsland" },
   { id: "side-cabinets", labelKey: "zoneSideCabinets" },
-  { id: "tall-cabinets", labelKey: "zoneTallCabinets" },
-  { id: "cabinets", labelKey: "defaultZoneLabel" },
+  { id: "tall-cabinets", labelKey: "zoneLeftTallCabinets" },
+  { id: "cabinets", labelKey: "zoneFullCabinetsSameColour" },
 ];
 
 export const CABINET_CUSTOM_VALUE = "__custom__";

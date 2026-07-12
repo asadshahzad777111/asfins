@@ -152,6 +152,8 @@ export const translations = {
     zoneLowerCabinetsIsland: "Lower Cabinets & Island",
     zoneSideCabinets: "Side Cabinets",
     zoneTallCabinets: "Tall Cabinets / Pantry",
+    zoneLeftTallCabinets: "Left tall cabinets",
+    zoneFullCabinetsSameColour: "Full cabinets same colour",
     zoneShelves: "Shelves",
     zoneCabinetCustom: "Custom...",
     zoneCabinetSelectPlaceholder: "Select cabinet type...",
@@ -159,6 +161,9 @@ export const translations = {
     zoneCountertop: "Countertop",
     zoneWall: "Wall",
     zoneFloor: "Floor",
+    advancedOptions: "Advanced options",
+    advancedOptionsHint: "Show tap dots on the photo to pick a zone",
+    zoneHotspotSelect: "Select {zone}",
     doubleShade: "Double shade",
     doubleShadeHint: "Quick two-tone cabinet combos",
     doubleShadeIndependent: "Or pick {upper} and {lower} colours separately below.",
@@ -496,7 +501,7 @@ export const translations = {
     wizardSaveAnyway: "Save anyway",
     wizardGoBackMap: "Go back to mapping",
     wizardZoneChecklistDesc:
-      "What did you cut in this kitchen? Tick first — only checked zones appear in mapping (floor, walls, upper/lower cabinets, island…).",
+      "What did you cut in this kitchen? Tick first — only checked zones appear in mapping (floor, walls, upper/lower, full cabinets same colour, left tall cabinets, island…).",
     wizardZoneChecklist: "Cut-out checklist — ask this first",
     wizardRegionAssign: "Assign region",
     wizardTouchingRegionsHint:
@@ -530,7 +535,7 @@ export const translations = {
     wizardSectionLowerDoors: "Lower doors",
     wizardSectionExtras: "Island & extras",
 
-    // Admin sales
+    // Admin sales (EN)
     newSale: "New sale",
     saleCustomer: "Customer",
     saleProduct: "Product",
@@ -704,6 +709,8 @@ export const translations = {
     zoneLowerCabinetsIsland: "Lower Cabinets & Island",
     zoneSideCabinets: "Side Cabinets",
     zoneTallCabinets: "Tall Cabinets / Pantry",
+    zoneLeftTallCabinets: "Left tall cabinets (bayan wali unit)",
+    zoneFullCabinetsSameColour: "Full cabinets same colour (sab ek rang)",
     zoneShelves: "Shelves",
     zoneCabinetCustom: "Custom...",
     zoneCabinetSelectPlaceholder: "Cabinet type select karein...",
@@ -711,6 +718,9 @@ export const translations = {
     zoneCountertop: "Countertop",
     zoneWall: "Wall",
     zoneFloor: "Floor",
+    advancedOptions: "Advanced options",
+    advancedOptionsHint: "Photo par tap dots dikhao — zone choose karein",
+    zoneHotspotSelect: "{zone} select karein",
     doubleShade: "Do rang",
     doubleShadeHint: "Do alag cabinet colours — quick combos",
     doubleShadeIndependent: "Ya neeche {upper} aur {lower} alag alag colour choose karein.",
@@ -1038,7 +1048,7 @@ export const translations = {
     wizardSaveAnyway: "Phir bhi save karein",
     wizardGoBackMap: "Mapping par wapas jayein",
     wizardZoneChecklistDesc:
-      "Is kitchen mein kya cut hai? Pehle checklist tick karein — sirf ye zones mapping mein aayenge (floor, walls, upper/lower cabinets, island…).",
+      "Is kitchen mein kya cut hai? Pehle checklist tick karein — sirf ye zones mapping mein aayenge (floor, walls, upper/lower, full cabinets same colour, left tall cabinets, island…).",
     wizardZoneChecklist: "Cut-out checklist — pehle ye poochho",
     wizardRegionAssign: "Region assign",
     wizardTouchingRegionsHint:

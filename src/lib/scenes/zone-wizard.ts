@@ -36,6 +36,32 @@ const KITCHEN_QUESTIONS: ZoneQuestion[] = [
   { id: "lower-door-3", labelKey: "zoneLowerDoor3", palette: "wood", zoneGroup: "wood", optional: true, sectionKey: "wizardSectionLowerDoors" },
   { id: "lower-door-4", labelKey: "zoneLowerDoor4", palette: "wood", zoneGroup: "wood", optional: true, sectionKey: "wizardSectionLowerDoors" },
 
+  // One mask → all wood cabinets share a single Studio colour control
+  {
+    id: "cabinets",
+    labelKey: "zoneFullCabinetsSameColour",
+    palette: "wood",
+    zoneGroup: "wood",
+    optional: true,
+    sectionKey: "wizardSectionExtras",
+  },
+  // Tall left stack / pantry unit (distinct left column in many kitchen photos)
+  {
+    id: "tall-cabinets",
+    labelKey: "zoneLeftTallCabinets",
+    palette: "wood",
+    zoneGroup: "wood",
+    optional: true,
+    sectionKey: "wizardSectionExtras",
+  },
+  {
+    id: "side-cabinets",
+    labelKey: "zoneSideCabinets",
+    palette: "wood",
+    zoneGroup: "wood",
+    optional: true,
+    sectionKey: "wizardSectionExtras",
+  },
   { id: "island", labelKey: "zoneIsland", palette: "wood", zoneGroup: "wood", optional: true, sectionKey: "wizardSectionExtras" },
   { id: "countertop", labelKey: "zoneCountertop", palette: "tile", zoneGroup: "tile", optional: true, sectionKey: "wizardSectionExtras" },
   { id: "backsplash", labelKey: "zoneBacksplash", palette: "tile", zoneGroup: "tile", optional: true, sectionKey: "wizardSectionExtras" },
@@ -45,7 +71,7 @@ const KITCHEN_QUESTIONS: ZoneQuestion[] = [
 const GENERIC_QUESTIONS: ZoneQuestion[] = [
   { id: "floor", labelKey: "zoneFloor", palette: "paint", zoneGroup: "surface" },
   { id: "wall", labelKey: "zoneWall", palette: "paint", zoneGroup: "surface", optional: true },
-  { id: "cabinets", labelKey: "defaultZoneLabel", palette: "wood", zoneGroup: "wood" },
+  { id: "cabinets", labelKey: "zoneFullCabinetsSameColour", palette: "wood", zoneGroup: "wood" },
 ];
 
 export function getZoneQuestions(category: RoomCategory): ZoneQuestion[] {
@@ -94,6 +120,18 @@ export const STUDIO_CABINET_TARGETS: StudioZoneTarget[] = [
     zoneGroup: "wood",
   },
   {
+    id: "tall-cabinets",
+    labelKey: "zoneLeftTallCabinets",
+    palette: "wood",
+    zoneGroup: "wood",
+  },
+  {
+    id: "side-cabinets",
+    labelKey: "zoneSideCabinets",
+    palette: "wood",
+    zoneGroup: "wood",
+  },
+  {
     id: "island",
     labelKey: "zoneIsland",
     palette: "wood",
@@ -101,7 +139,7 @@ export const STUDIO_CABINET_TARGETS: StudioZoneTarget[] = [
   },
   {
     id: "cabinets",
-    labelKey: "defaultZoneLabel",
+    labelKey: "zoneFullCabinetsSameColour",
     palette: "wood",
     zoneGroup: "wood",
   },
@@ -127,7 +165,9 @@ export function mergedStudioZoneId(slotId: string): string {
     return "upper-cabinets";
   }
   if (slotId === "island" || slotId === "table") return "island";
-  if (slotId === "cabinets" || slotId === "shelves" || slotId === "side-cabinets") {
+  if (slotId === "tall-cabinets") return "tall-cabinets";
+  if (slotId === "side-cabinets") return "side-cabinets";
+  if (slotId === "cabinets" || slotId === "shelves") {
     return slotId === "shelves" ? "shelves" : "cabinets";
   }
   return slotId;
@@ -221,7 +261,7 @@ export function resolveStudioZoneMeta(
   }
   return {
     id: zoneId,
-    labelKey: "defaultZoneLabel",
+    labelKey: "zoneFullCabinetsSameColour",
     palette: "wood",
     zoneGroup: "wood",
   };
