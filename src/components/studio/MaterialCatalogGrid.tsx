@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ZrkCatalogCard } from "@/components/ZrkCatalogCard";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -15,6 +15,15 @@ import {
   filterSwatchesBySeries,
   groupSwatchesBySeries,
 } from "@/lib/catalogs/series";
+import { saveStudioCatalogNav } from "@/lib/catalogs/catalog-nav";
+import { formatPKR, resolveSheetRate } from "@/lib/rates";
+import { getStockStatus, stockStatusLabelKey } from "@/lib/stock";
+
+export interface CatalogDrillDown {
+  browsingFolders: boolean;
+  openSeriesId: string | null;
+  filter: string;
+}
 
 interface MaterialCatalogGridProps {
   catalogs: Catalog[];
@@ -23,6 +32,8 @@ interface MaterialCatalogGridProps {
   activeZonePalette: ZonePalette;
   selectedHex: string;
   onPick: (swatch: CatalogSwatch) => void;
+  drillDown: CatalogDrillDown;
+  onDrillDownChange: (next: CatalogDrillDown) => void;
 }
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -34,11 +45,20 @@ export function MaterialCatalogGrid({
   activeZonePalette,
   selectedHex,
   onPick,
+  drillDown,
+  onDrillDownChange,
 }: MaterialCatalogGridProps) {
   const { t } = useLanguage();
-  const [filter, setFilter] = useState("");
-  const [browsingFolders, setBrowsingFolders] = useState(catalogs.length > 1);
-  const [openSeriesId, setOpenSeriesId] = useState<string | null>(null);
+  const { browsingFolders, openSeriesId, filter } = drillDown;
+
+  useEffect(() => {
+    saveStudioCatalogNav({
+      browsingFolders,
+      openSeriesId,
+      filter,
+      catalogId: selectedCatalogId,
+    });
+  }, [browsingFolders, openSeriesId, filter, selectedCatalogId]);
 
   const folders = useMemo(() => catalogsToFolders(catalogs), [catalogs]);
   const catalog = catalogs.find((c) => c.id === selectedCatalogId) ?? catalogs[0];
@@ -99,6 +119,10 @@ export function MaterialCatalogGrid({
   const showFolders = browsingFolders && folders.length > 1 && !filter.trim();
   const openSeries = seriesFolders.find((s) => s.id === openSeriesId) ?? null;
 
+  function patchDrill(partial: Partial<CatalogDrillDown>) {
+    onDrillDownChange({ ...drillDown, ...partial });
+  }
+
   return (
     <div className="flex flex-col">
       <div className="sticky top-0 z-10 border-b border-divider bg-marble/95 px-4 py-3 backdrop-blur-sm">
@@ -125,9 +149,11 @@ export function MaterialCatalogGrid({
                 columns="studio"
                 onOpen={(id) => {
                   onCatalogChange(id);
-                  setBrowsingFolders(false);
-                  setOpenSeriesId(null);
-                  setFilter("");
+                  patchDrill({
+                    browsingFolders: false,
+                    openSeriesId: null,
+                    filter: "",
+                  });
                 }}
               />
             </motion.div>
@@ -143,11 +169,13 @@ export function MaterialCatalogGrid({
               {folders.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setBrowsingFolders(true);
-                    setOpenSeriesId(null);
-                    setFilter("");
-                  }}
+                  onClick={() =>
+                    patchDrill({
+                      browsingFolders: true,
+                      openSeriesId: null,
+                      filter: "",
+                    })
+                  }
                   className="font-mono-data text-[9px] uppercase tracking-wider text-ink hover:underline"
                 >
                   {t("allBrandFolders")}
@@ -174,10 +202,7 @@ export function MaterialCatalogGrid({
                 }))}
                 columns="studio"
                 hideBrandLogo
-                onOpen={(id) => {
-                  setOpenSeriesId(id);
-                  setFilter("");
-                }}
+                onOpen={(id) => patchDrill({ openSeriesId: id, filter: "" })}
               />
             </motion.div>
           ) : (
@@ -192,11 +217,13 @@ export function MaterialCatalogGrid({
               {folders.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setBrowsingFolders(true);
-                    setOpenSeriesId(null);
-                    setFilter("");
-                  }}
+                  onClick={() =>
+                    patchDrill({
+                      browsingFolders: true,
+                      openSeriesId: null,
+                      filter: "",
+                    })
+                  }
                   className="font-mono-data text-[9px] uppercase tracking-wider text-ink hover:underline"
                 >
                   {t("allBrandFolders")}
@@ -206,10 +233,7 @@ export function MaterialCatalogGrid({
               {seriesFolders.length > 1 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setOpenSeriesId(null);
-                    setFilter("");
-                  }}
+                  onClick={() => patchDrill({ openSeriesId: null, filter: "" })}
                   className="ml-2 font-mono-data text-[9px] uppercase tracking-wider text-ink hover:underline"
                 >
                   {t("allSeriesFolders")}
@@ -230,7 +254,7 @@ export function MaterialCatalogGrid({
                 <input
                   type="search"
                   value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
+                  onChange={(e) => patchDrill({ filter: e.target.value })}
                   placeholder={t("catalogFilter")}
                   className="w-full rounded-sm border border-divider bg-white py-2 pl-7 pr-7 font-mono-data text-[10px] placeholder:text-muted/50"
                 />
@@ -248,7 +272,7 @@ export function MaterialCatalogGrid({
                 {filter && (
                   <button
                     type="button"
-                    onClick={() => setFilter("")}
+                    onClick={() => patchDrill({ filter: "" })}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-muted/50 hover:text-muted"
                     aria-label={t("clearFilter")}
                   >
@@ -271,6 +295,13 @@ export function MaterialCatalogGrid({
                 <div className="grid grid-cols-2 gap-2.5">
                   {swatches.map((swatch) => {
                     const active = swatch.hex.toLowerCase() === selectedHex.toLowerCase();
+                    const rate = resolveSheetRate({
+                      pricePKR: swatch.pricePKR,
+                      materialCategory: swatch.materialCategory,
+                      substrate: swatch.substrate,
+                      description: swatch.description,
+                    });
+                    const status = getStockStatus(swatch.stock, swatch.lowStockAt);
                     return (
                       <ZrkCatalogCard
                         key={swatch.id}
@@ -280,7 +311,11 @@ export function MaterialCatalogGrid({
                         code={swatch.sheetCode}
                         title={swatch.name}
                         subtitle={swatch.materialCategory ?? paletteLabel}
-                        meta={catalog?.companyName}
+                        meta={
+                          rate > 0
+                            ? `${formatPKR(rate)} · ${t(stockStatusLabelKey(status))}`
+                            : catalog?.companyName
+                        }
                         active={active}
                         onClick={() => onPick(swatch)}
                       />

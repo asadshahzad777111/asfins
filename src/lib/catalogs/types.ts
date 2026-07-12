@@ -1,3 +1,6 @@
+import type { FinishHintId } from "@/lib/catalogs/finish-hint";
+import type { Substrate } from "@/lib/stock";
+
 export interface CatalogSwatch {
   id: string;
   name: string;
@@ -19,6 +22,11 @@ export interface CatalogSwatch {
   description?: string;
   idealApplications?: string;
   technicalSheetUrl?: string;
+  /** Core board for rate/stock tracks */
+  substrate?: Substrate | null;
+  stock?: number;
+  lowStockAt?: number;
+  finishHint?: FinishHintId;
 }
 
 export interface Catalog {

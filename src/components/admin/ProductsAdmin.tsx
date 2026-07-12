@@ -18,6 +18,10 @@ const EMPTY_ZRK = {
   brandName: "",
   technicalSheetUrl: "",
   imageUrl: "",
+  materialCategory: "",
+  substrate: "",
+  stock: "",
+  lowStockAt: "",
 };
 
 export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
@@ -191,6 +195,53 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
             className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
           />
         </label>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium">{t("materialCategory")}</span>
+            <input
+              value={zrk.materialCategory}
+              onChange={(e) => updateZrk("materialCategory", e.target.value)}
+              placeholder="UV Lux"
+              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium">{t("substrate")}</span>
+            <select
+              value={zrk.substrate}
+              onChange={(e) => updateZrk("substrate", e.target.value)}
+              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+            >
+              <option value="">—</option>
+              <option value="mdf">{t("substrateMdf")}</option>
+              <option value="chipboard">{t("substrateChipboard")}</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-sm font-medium">{t("stockLabel")}</span>
+            <input
+              type="number"
+              min={0}
+              value={zrk.stock}
+              onChange={(e) => updateZrk("stock", e.target.value)}
+              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium">{t("lowStockAtLabel")}</span>
+            <input
+              type="number"
+              min={0}
+              value={zrk.lowStockAt}
+              onChange={(e) => updateZrk("lowStockAt", e.target.value)}
+              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+            />
+          </label>
+        </div>
 
         <label className="block">
           <span className="text-sm font-medium">{t("category")}</span>

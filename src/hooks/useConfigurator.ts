@@ -10,12 +10,14 @@ import {
   type RenderState,
   type ZoneColors,
   type ZoneTextures,
+  type ZoneFinishHints,
   type ColourBlock,
   type ZoneBoundingBox,
   type ZoneSplitState,
 } from "@/lib/canvas/engine";
 import type { SceneConfig } from "@/lib/scenes/types";
 import type { CatalogSwatch } from "@/lib/catalogs/types";
+import { finishHintFromSwatch } from "@/lib/catalogs/finish-hint";
 
 interface UseConfiguratorOptions {
   onLoadError?: () => void;
@@ -37,6 +39,7 @@ export function useConfigurator(
     lighting: "day",
     cabinetColourBoard: [],
     zoneSplits: {},
+    zoneFinishHints: {},
   }));
 
   useEffect(() => {
@@ -55,6 +58,7 @@ export function useConfigurator(
       lighting: "day",
       cabinetColourBoard: [],
       zoneSplits: {},
+      zoneFinishHints: {},
     };
     setState(initialState);
 
@@ -101,12 +105,19 @@ export function useConfigurator(
           else mergedSplits[key] = val;
         }
       }
+      const mergedHints: ZoneFinishHints = { ...prev.zoneFinishHints };
+      if (partial.zoneFinishHints) {
+        for (const [key, val] of Object.entries(partial.zoneFinishHints)) {
+          mergedHints[key] = val;
+        }
+      }
       const next: RenderState = {
         finish: partial.finish ?? prev.finish,
         lighting: partial.lighting ?? prev.lighting,
         zoneColors: mergedColors,
         zoneTextures: mergedTextures,
         zoneSplits: mergedSplits,
+        zoneFinishHints: mergedHints,
         cabinetColourBoard:
           partial.cabinetColourBoard !== undefined
             ? partial.cabinetColourBoard
@@ -118,7 +129,12 @@ export function useConfigurator(
   }, []);
 
   const setZoneColor = useCallback(
-    async (zone: string, hex: string, imageUrl?: string) => {
+    async (
+      zone: string,
+      hex: string,
+      imageUrl?: string,
+      finishHint?: ReturnType<typeof finishHintFromSwatch>
+    ) => {
       setApplying(true);
       try {
         let textureUrl = imageUrl;
@@ -132,6 +148,7 @@ export function useConfigurator(
         update({
           zoneColors: { [zone]: hex },
           zoneTextures: { [zone]: textureUrl },
+          ...(finishHint ? { zoneFinishHints: { [zone]: finishHint } } : {}),
         });
       } finally {
         requestAnimationFrame(() => {
@@ -143,8 +160,15 @@ export function useConfigurator(
   );
 
   const setZoneFromSwatch = useCallback(
-    async (zone: string, swatch: Pick<CatalogSwatch, "hex" | "imageUrl">) => {
-      await setZoneColor(zone, swatch.hex, swatch.imageUrl);
+    async (
+      zone: string,
+      swatch: Pick<
+        CatalogSwatch,
+        "hex" | "imageUrl" | "materialCategory" | "surfaceFinish" | "finishHint"
+      >
+    ) => {
+      const hint = finishHintFromSwatch(swatch);
+      await setZoneColor(zone, swatch.hex, swatch.imageUrl, hint);
     },
     [setZoneColor]
   );
@@ -198,15 +222,18 @@ export function useConfigurator(
     const defaults = defaultZoneColors(scene.zones);
     const clearedTextures: ZoneTextures = {};
     const clearedSplits: Record<string, undefined> = {};
+    const clearedHints: ZoneFinishHints = {};
     for (const z of scene.zones) {
       clearedTextures[z.id] = undefined;
       clearedSplits[z.id] = undefined;
+      clearedHints[z.id] = undefined;
     }
     update({
       zoneColors: defaults,
       zoneTextures: clearedTextures,
       cabinetColourBoard: [],
       zoneSplits: clearedSplits,
+      zoneFinishHints: clearedHints,
     });
   }, [scene.zones, update]);
 

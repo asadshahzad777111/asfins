@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { ZrkCatalogCard } from "@/components/ZrkCatalogCard";
@@ -18,6 +18,12 @@ import {
   groupSwatchesBySeries,
   type SeriesFolder,
 } from "@/lib/catalogs/series";
+import {
+  loadProductsCatalogNav,
+  saveProductsCatalogNav,
+} from "@/lib/catalogs/catalog-nav";
+import { formatPKR, resolveSheetRate } from "@/lib/rates";
+import { getStockStatus, stockStatusLabelKey } from "@/lib/stock";
 
 interface ProductsPageClientProps {
   products: Product[];
@@ -46,15 +52,42 @@ type CatalogItem = {
   meta?: string;
 };
 
+function initialProductsNav() {
+  const saved = loadProductsCatalogNav();
+  return {
+    filter: saved?.filter ?? "",
+    openCatalogId: saved?.catalogId ?? null,
+    openSeriesId: saved?.openSeriesId ?? null,
+  };
+}
+
 export function ProductsPageClient({
   products,
   materials,
   catalogs,
 }: ProductsPageClientProps) {
   const { t } = useLanguage();
-  const [filter, setFilter] = useState("");
-  const [openCatalogId, setOpenCatalogId] = useState<string | null>(null);
-  const [openSeriesId, setOpenSeriesId] = useState<string | null>(null);
+  const [nav, setNav] = useState(initialProductsNav);
+  const { filter, openCatalogId, openSeriesId } = nav;
+
+  useEffect(() => {
+    saveProductsCatalogNav({
+      browsingFolders: !openCatalogId,
+      openSeriesId,
+      filter,
+      catalogId: openCatalogId,
+    });
+  }, [openCatalogId, openSeriesId, filter]);
+
+  function setFilter(v: string) {
+    setNav((prev) => ({ ...prev, filter: v }));
+  }
+  function setOpenCatalogId(v: string | null) {
+    setNav((prev) => ({ ...prev, openCatalogId: v }));
+  }
+  function setOpenSeriesId(v: string | null) {
+    setNav((prev) => ({ ...prev, openSeriesId: v }));
+  }
 
   const folders = useMemo(
     () => catalogsToFolders(catalogs, { requireGlobal: true }),
@@ -92,17 +125,29 @@ export function ProductsPageClient({
     const all: CatalogItem[] = [
       ...scopedMaterials
         .filter((m) => !seriesIds || seriesIds.has(m.swatch.id))
-        .map((m) => ({
-          key: `mat-${m.catalogId}-${m.swatch.id}`,
-          href: `/materials/${m.catalogId}/${m.swatch.id}`,
-          imageSrc: m.swatch.imageUrl,
-          thumbSrc: m.swatch.thumbUrl,
-          hex: m.swatch.hex,
-          code: m.swatch.sheetCode,
-          title: m.swatch.name,
-          subtitle: m.swatch.materialCategory ?? m.catalogName,
-          meta: m.swatch.surfaceFinish,
-        })),
+        .map((m) => {
+          const rate = resolveSheetRate({
+            pricePKR: m.swatch.pricePKR,
+            materialCategory: m.swatch.materialCategory,
+            substrate: m.swatch.substrate,
+            description: m.swatch.description,
+          });
+          const status = getStockStatus(m.swatch.stock, m.swatch.lowStockAt);
+          return {
+            key: `mat-${m.catalogId}-${m.swatch.id}`,
+            href: `/materials/${m.catalogId}/${m.swatch.id}`,
+            imageSrc: m.swatch.imageUrl,
+            thumbSrc: m.swatch.thumbUrl,
+            hex: m.swatch.hex,
+            code: m.swatch.sheetCode,
+            title: m.swatch.name,
+            subtitle: m.swatch.materialCategory ?? m.catalogName,
+            meta:
+              rate > 0
+                ? `${formatPKR(rate)} · ${t(stockStatusLabelKey(status))}`
+                : m.swatch.surfaceFinish,
+          };
+        }),
       ...products
         .filter((p) => !materialIds.has(p.id))
         .filter((p) => {
@@ -113,17 +158,29 @@ export function ProductsPageClient({
             .toLowerCase()
             .includes(brandName.split(" ")[0]);
         })
-        .map((p) => ({
-          key: `prod-${p.id}`,
-          href: `/products/${p.id}`,
-          imageSrc: p.image,
-          thumbSrc: undefined as string | undefined,
-          hex: undefined as string | undefined,
-          code: p.productCode ?? p.id,
-          title: p.name,
-          subtitle: p.category,
-          meta: p.surfaceFinish,
-        })),
+        .map((p) => {
+          const rate = resolveSheetRate({
+            pricePKR: p.pricePKR,
+            materialCategory: p.materialCategory,
+            substrate: p.substrate,
+            description: p.description,
+          });
+          const status = getStockStatus(p.stock, p.lowStockAt);
+          return {
+            key: `prod-${p.id}`,
+            href: `/products/${p.id}`,
+            imageSrc: p.image,
+            thumbSrc: undefined as string | undefined,
+            hex: undefined as string | undefined,
+            code: p.productCode ?? p.id,
+            title: p.name,
+            subtitle: p.category,
+            meta:
+              rate > 0
+                ? `${formatPKR(rate)} · ${t(stockStatusLabelKey(status))}`
+                : p.surfaceFinish,
+          };
+        }),
     ];
 
     const q = filter.trim().toLowerCase();
@@ -159,6 +216,7 @@ export function ProductsPageClient({
     openCatalogId,
     openCatalog,
     openSeriesId,
+    t,
   ]);
 
   const showFolders = folders.length > 1 && !openCatalogId && !filter.trim();
@@ -196,9 +254,6 @@ export function ProductsPageClient({
             <h1 className="text-heading-lg mt-4 max-w-3xl">{t("productsTitle")}</h1>
             <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-muted">
               {t("productsSubtitle")}
-            </p>
-            <p className="mt-3 text-[12px] uppercase tracking-[0.12em] text-muted/70">
-              {t("ratesComingSoon")}
             </p>
           </motion.div>
         </div>

@@ -76,6 +76,23 @@ export async function POST(request: NextRequest) {
     idealApplications: optionalString(form, "idealApplications"),
     brandName: optionalString(form, "brandName"),
     technicalSheetUrl: optionalString(form, "technicalSheetUrl"),
+    materialCategory: optionalString(form, "materialCategory"),
+    substrate: (() => {
+      const s = optionalString(form, "substrate");
+      return s === "mdf" || s === "chipboard" ? s : null;
+    })(),
+    stock: (() => {
+      const raw = form.get("stock");
+      if (raw == null || String(raw).trim() === "") return undefined;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : undefined;
+    })(),
+    lowStockAt: (() => {
+      const raw = form.get("lowStockAt");
+      if (raw == null || String(raw).trim() === "") return undefined;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : undefined;
+    })(),
   };
 
   await saveProduct(product);

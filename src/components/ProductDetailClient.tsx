@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { formatPKR } from "@/lib/rates";
-import { SHOP } from "@/lib/constants";
+import { parseSeriesFromDescription, resolveSheetRate } from "@/lib/rates";
+import { StockRateBadge } from "@/components/StockRateBadge";
 import type { Product } from "@/lib/products/types";
 
 interface ProductDetailClientProps {
@@ -12,12 +12,37 @@ interface ProductDetailClientProps {
 }
 
 interface SpecRow {
-  labelKey: "productCode" | "surfaceFinish" | "colorDescription" | "dimensions" | "thickness" | "idealApplications" | "brandName";
+  labelKey:
+    | "productCode"
+    | "surfaceFinish"
+    | "colorDescription"
+    | "dimensions"
+    | "thickness"
+    | "idealApplications"
+    | "brandName"
+    | "substrateMdf"
+    | "substrateChipboard";
   value: string | undefined;
 }
 
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const { t } = useLanguage();
+
+  const series =
+    product.materialCategory ?? parseSeriesFromDescription(product.description);
+  const rate = resolveSheetRate({
+    pricePKR: product.pricePKR,
+    materialCategory: series,
+    substrate: product.substrate,
+    description: product.description,
+  });
+
+  const substrateLabel =
+    product.substrate === "mdf"
+      ? t("substrateMdf")
+      : product.substrate === "chipboard"
+        ? t("substrateChipboard")
+        : undefined;
 
   const specs = (
     [
@@ -28,12 +53,14 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
       { labelKey: "thickness" as const, value: product.thickness },
       { labelKey: "idealApplications" as const, value: product.idealApplications },
       { labelKey: "brandName" as const, value: product.brandName },
+      {
+        labelKey: (product.substrate === "chipboard"
+          ? "substrateChipboard"
+          : "substrateMdf") as SpecRow["labelKey"],
+        value: substrateLabel,
+      },
     ] as SpecRow[]
   ).filter((s) => s.value);
-
-  const whatsappDealer = `https://wa.me/${SHOP.whatsapp}?text=${encodeURIComponent(
-    `Hi, I'm interested in product ${product.productCode ?? product.name}. Please connect me with a dealer.`
-  )}`;
 
   return (
     <div className="bg-marble">
@@ -43,7 +70,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         </Link>
 
         <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-16">
-          {/* Product image */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -58,7 +84,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             />
           </motion.div>
 
-          {/* Product details */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -69,19 +94,27 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 {product.brandName}
               </p>
             )}
+            {series && (
+              <p className="mt-1 font-mono-data text-[10px] uppercase tracking-wider text-muted">
+                {series}
+              </p>
+            )}
             <h1 className="font-display mt-2 text-3xl text-charcoal sm:text-4xl">
               {product.name}
             </h1>
-            <p className="font-mono-data mt-3 text-lg text-brass">
-              {formatPKR(product.pricePKR)}{" "}
-              <span className="text-sm text-muted">{t("perSheet")}</span>
-            </p>
+
+            <div className="mt-5">
+              <StockRateBadge
+                rate={rate}
+                stock={product.stock}
+                lowStockAt={product.lowStockAt}
+              />
+            </div>
 
             {product.description && (
               <p className="mt-6 leading-relaxed text-muted">{product.description}</p>
             )}
 
-            {/* Action buttons */}
             <div className="mt-8 flex flex-wrap gap-3">
               {product.technicalSheetUrl && (
                 <a
@@ -93,23 +126,24 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   {t("technicalSheet")} ↓
                 </a>
               )}
-              <a href={whatsappDealer} target="_blank" rel="noopener noreferrer" className="btn-outline">
-                {t("findDealer")}
-              </a>
               <Link href="/gallery/kitchen" className="btn-primary">
                 {t("visualizeThis")}
               </Link>
             </div>
 
-            {/* Spec table */}
             {specs.length > 0 && (
               <div className="mt-10">
                 <h2 className="font-display text-lg text-charcoal">{t("productSpecs")}</h2>
                 <table className="spec-table mt-4">
                   <tbody>
                     {specs.map((spec) => (
-                      <tr key={spec.labelKey}>
-                        <th>{t(spec.labelKey)}</th>
+                      <tr key={spec.labelKey + (spec.value ?? "")}>
+                        <th>
+                          {spec.labelKey === "substrateMdf" ||
+                          spec.labelKey === "substrateChipboard"
+                            ? t("substrate")
+                            : t(spec.labelKey)}
+                        </th>
                         <td>{spec.value}</td>
                       </tr>
                     ))}
@@ -120,7 +154,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
           </motion.div>
         </div>
 
-        {/* VDS CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

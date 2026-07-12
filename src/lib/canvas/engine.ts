@@ -22,12 +22,18 @@ import {
   type ZoneSplits,
   type ZoneSplitState,
 } from "@/lib/canvas/colour-split";
+import {
+  effectiveGlossMultiplier,
+  effectiveHighlightAlpha,
+  type SeriesFinishHint,
+} from "@/lib/catalogs/finish-hint";
 
 export type FinishMode = "matt" | "glossy";
 export type LightingMode = "day" | "night";
 
 export type ZoneColors = Record<string, string>;
 export type ZoneTextures = Record<string, string | undefined>;
+export type ZoneFinishHints = Record<string, SeriesFinishHint | undefined>;
 
 export type { ColourBlock };
 export type { ZoneBoundingBox, ZoneSplits, ZoneSplitState };
@@ -41,6 +47,8 @@ export interface RenderState {
   cabinetColourBoard: ColourBlock[];
   /** Per-zone line-split multi-colour state (default/simple mode). Zones without an active split use zoneColors. */
   zoneSplits: ZoneSplits;
+  /** Per-zone series finish hint (gloss/texture feel) from catalog pick. */
+  zoneFinishHints: ZoneFinishHints;
 }
 
 export type PartialZoneColors = Partial<ZoneColors>;
@@ -52,6 +60,7 @@ export type ConfiguratorUpdate = {
   lighting?: LightingMode;
   cabinetColourBoard?: ColourBlock[];
   zoneSplits?: Partial<ZoneSplits>;
+  zoneFinishHints?: Partial<ZoneFinishHints>;
 };
 
 export interface LoadedAssets {
@@ -259,7 +268,8 @@ export function colorizeMask(
   width: number,
   height: number,
   glossy: boolean,
-  luminanceSource?: CanvasImageSource
+  luminanceSource?: CanvasImageSource,
+  glossMultiplier?: number
 ): HTMLCanvasElement {
   const off = document.createElement("canvas");
   off.width = width;
@@ -296,14 +306,15 @@ export function colorizeMask(
   }
   ctx.putImageData(outPx, 0, 0);
 
-  if (glossy) {
+  const mult = glossMultiplier ?? (glossy ? 1.08 : 1);
+  if (mult !== 1) {
     const imgData = ctx.getImageData(0, 0, width, height);
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] === 0) continue;
-      d[i] = Math.min(255, d[i] * 1.08);
-      d[i + 1] = Math.min(255, d[i + 1] * 1.08);
-      d[i + 2] = Math.min(255, d[i + 2] * 1.08);
+      d[i] = Math.min(255, d[i] * mult);
+      d[i + 1] = Math.min(255, d[i + 1] * mult);
+      d[i + 2] = Math.min(255, d[i + 2] * mult);
     }
     ctx.putImageData(imgData, 0, 0);
   }
@@ -357,6 +368,7 @@ export class SceneRenderer {
       zoneTextures: { ...this.state.zoneTextures },
       cabinetColourBoard: [...this.state.cabinetColourBoard],
       zoneSplits: { ...this.state.zoneSplits },
+      zoneFinishHints: { ...this.state.zoneFinishHints },
     };
     const mergedZoneColors = partial.zoneColors
       ? { ...this.state.zoneColors }
@@ -383,12 +395,21 @@ export class SceneRenderer {
         else mergedZoneSplits[key] = val;
       }
     }
+    const mergedFinishHints = partial.zoneFinishHints
+      ? { ...this.state.zoneFinishHints }
+      : this.state.zoneFinishHints;
+    if (partial.zoneFinishHints) {
+      for (const [key, val] of Object.entries(partial.zoneFinishHints)) {
+        mergedFinishHints[key] = val;
+      }
+    }
     this.state = {
       ...this.state,
       ...partial,
       zoneColors: mergedZoneColors,
       zoneTextures: mergedZoneTextures,
       zoneSplits: mergedZoneSplits,
+      zoneFinishHints: mergedFinishHints,
       cabinetColourBoard:
         partial.cabinetColourBoard !== undefined
           ? partial.cabinetColourBoard
@@ -406,10 +427,11 @@ export class SceneRenderer {
       return;
     }
 
-    if (partial.zoneColors || partial.zoneTextures) {
+    if (partial.zoneColors || partial.zoneTextures || partial.zoneFinishHints) {
       const changedZones = new Set([
         ...(partial.zoneColors ? Object.keys(partial.zoneColors) : []),
         ...(partial.zoneTextures ? Object.keys(partial.zoneTextures) : []),
+        ...(partial.zoneFinishHints ? Object.keys(partial.zoneFinishHints) : []),
       ]);
       if (changedZones.size > 0 && this.assets) {
         for (const z of changedZones) {
@@ -510,7 +532,8 @@ export class SceneRenderer {
 
   private cacheKey(zone: string, finish: FinishMode): string {
     const tex = this.state.zoneTextures[zone] ?? "";
-    return `${zone}-${this.state.zoneColors[zone]}-${tex}-${finish}`;
+    const hintId = this.state.zoneFinishHints[zone]?.id ?? "";
+    return `${zone}-${this.state.zoneColors[zone]}-${tex}-${finish}-${hintId}`;
   }
 
   private async getZoneCanvas(zoneId: string): Promise<HTMLCanvasElement | null> {
@@ -524,7 +547,14 @@ export class SceneRenderer {
     const textureUrl = this.state.zoneTextures[zoneId];
     const glossy = this.state.finish === "glossy";
     const zoneCfg = this.scene.zones.find((z) => z.id === zoneId);
-    const useGlossy = glossy && (zoneCfg?.glossyHighlight ?? false);
+    const zoneAllowsGloss = zoneCfg?.glossyHighlight ?? false;
+    const useGlossy = glossy && zoneAllowsGloss;
+    const hint = this.state.zoneFinishHints[zoneId];
+    const glossMult = effectiveGlossMultiplier(
+      this.state.finish,
+      hint,
+      zoneAllowsGloss
+    );
 
     let colored: HTMLCanvasElement;
     if (textureUrl) {
@@ -537,7 +567,12 @@ export class SceneRenderer {
           this.scene.height,
           useGlossy,
           this.assets.base,
-          textureUrl
+          textureUrl,
+          {
+            glossMultiplier: glossMult,
+            textureScale: hint?.textureScale ?? 1,
+            grainEmphasis: hint?.grainEmphasis ?? 0,
+          }
         );
       } catch {
         colored = colorizeMask(
@@ -546,7 +581,8 @@ export class SceneRenderer {
           this.scene.width,
           this.scene.height,
           useGlossy,
-          this.assets.base
+          this.assets.base,
+          glossMult
         );
       }
     } else {
@@ -556,7 +592,8 @@ export class SceneRenderer {
         this.scene.width,
         this.scene.height,
         useGlossy,
-        this.assets.base
+        this.assets.base,
+        glossMult
       );
     }
     this.zoneCache.set(key, colored);
@@ -683,9 +720,15 @@ export class SceneRenderer {
   private applyGlossyHighlight(): void {
     if (!this.assets) return;
     const { width, height } = this.scene;
+    const hints = Object.values(this.state.zoneFinishHints).filter(Boolean) as SeriesFinishHint[];
+    const alpha =
+      hints.length > 0
+        ? Math.max(...hints.map((h) => effectiveHighlightAlpha("glossy", h)))
+        : 0.35;
+    if (alpha <= 0) return;
     this.ctx.save();
     this.ctx.globalCompositeOperation = "screen";
-    this.ctx.globalAlpha = 0.35;
+    this.ctx.globalAlpha = alpha;
     this.ctx.drawImage(this.assets.highlight, 0, 0, width, height);
     this.ctx.restore();
   }

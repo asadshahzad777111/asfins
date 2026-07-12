@@ -100,10 +100,14 @@ function fallbackHex(color?: string): string {
 export function zrkRowToSwatch(row: ZrkBulkRow): CatalogSwatch {
   const id = `zrk-${row.sheetCode}`;
   const color = row.colorDescription;
+  const materialCategory = row.materialCategory ?? "Textured Laminates";
   const desc =
     row.surfaceFinish && color
-      ? `A ${row.materialCategory ?? "Textured Laminates"} product with a ${row.surfaceFinish} surface, featuring a ${color} color tone.`
+      ? `A ${materialCategory} product with a ${row.surfaceFinish} surface, featuring a ${color} color tone.`
       : undefined;
+
+  const isLamination = /lamination\s*series/i.test(materialCategory);
+  const substrate = isLamination ? ("mdf" as const) : undefined;
 
   return {
     id,
@@ -114,13 +118,14 @@ export function zrkRowToSwatch(row: ZrkBulkRow): CatalogSwatch {
     palette: "wood",
     imageUrl: row.imageUrl,
     thumbUrl: row.thumbUrl,
-    materialCategory: row.materialCategory ?? "Textured Laminates",
+    materialCategory,
     surfaceFinish: row.surfaceFinish,
     colorDescription: color,
     dimensions: row.dimensions ?? DEFAULT_DIMENSIONS,
     thickness: row.thickness ?? DEFAULT_THICKNESS,
     description: desc,
     idealApplications: "Kitchen cabinets, wardrobes",
+    substrate: substrate ?? null,
   };
 }
 
@@ -144,6 +149,10 @@ export function zrkRowToProduct(row: ZrkBulkRow, swatch: CatalogSwatch): Product
     thickness: row.thickness ?? DEFAULT_THICKNESS,
     idealApplications: "Kitchen Cabinets",
     brandName: "ZRK Group",
+    materialCategory: swatch.materialCategory,
+    substrate: swatch.substrate ?? null,
+    stock: swatch.stock,
+    lowStockAt: swatch.lowStockAt,
   };
 }
 

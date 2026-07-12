@@ -366,6 +366,65 @@ export function CatalogsAdmin({ initialCatalogs }: CatalogsAdminProps) {
                             className="mt-1 w-full rounded-sm border border-divider px-2 py-1.5 text-sm"
                           />
                         </label>
+                        <label className="block text-sm">
+                          <span className="font-medium">{t("substrate")}</span>
+                          <select
+                            value={sw.substrate ?? ""}
+                            onChange={(e) =>
+                              setSwatches((s) =>
+                                updateSwatch(s, i, {
+                                  substrate: (e.target.value || null) as
+                                    | "mdf"
+                                    | "chipboard"
+                                    | null,
+                                })
+                              )
+                            }
+                            className="mt-1 w-full rounded-sm border border-divider px-2 py-1.5 text-sm"
+                          >
+                            <option value="">—</option>
+                            <option value="mdf">{t("substrateMdf")}</option>
+                            <option value="chipboard">{t("substrateChipboard")}</option>
+                          </select>
+                        </label>
+                        <label className="block text-sm">
+                          <span className="font-medium">{t("stockLabel")}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={sw.stock ?? ""}
+                            onChange={(e) =>
+                              setSwatches((s) =>
+                                updateSwatch(s, i, {
+                                  stock:
+                                    e.target.value === ""
+                                      ? undefined
+                                      : Number(e.target.value),
+                                })
+                              )
+                            }
+                            className="mt-1 w-full rounded-sm border border-divider px-2 py-1.5 text-sm"
+                          />
+                        </label>
+                        <label className="block text-sm">
+                          <span className="font-medium">{t("lowStockAtLabel")}</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={sw.lowStockAt ?? ""}
+                            onChange={(e) =>
+                              setSwatches((s) =>
+                                updateSwatch(s, i, {
+                                  lowStockAt:
+                                    e.target.value === ""
+                                      ? undefined
+                                      : Number(e.target.value),
+                                })
+                              )
+                            }
+                            className="mt-1 w-full rounded-sm border border-divider px-2 py-1.5 text-sm"
+                          />
+                        </label>
                         <label className="block text-sm sm:col-span-2">
                           <span className="font-medium">{t("technicalSheetUrlLabel")}</span>
                           <input

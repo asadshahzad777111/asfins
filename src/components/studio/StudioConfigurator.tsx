@@ -10,13 +10,14 @@ import { SceneSidebar } from "@/components/studio/SceneSidebar";
 import { StudioToolbar } from "@/components/studio/StudioToolbar";
 import { StudioZonePicker } from "@/components/studio/StudioZonePicker";
 import { ZoneHotspotOverlay } from "@/components/studio/ZoneHotspotOverlay";
-import { MaterialCatalogGrid } from "@/components/studio/MaterialCatalogGrid";
+import { MaterialCatalogGrid, type CatalogDrillDown } from "@/components/studio/MaterialCatalogGrid";
 import { nameFromHex, sheetCodeFromHex } from "@/lib/estimate";
 import { buildWhatsAppMessage, downloadDataUrl, whatsappUrl } from "@/lib/share";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { hasDoubleShade, resolveWoodPair } from "@/lib/scenes/zones";
 import { roomLabel } from "@/lib/i18n/translations";
 import { catalogsForPalette } from "@/lib/catalogs/materials";
+import { loadStudioCatalogNav } from "@/lib/catalogs/catalog-nav";
 import type { SceneConfig, ZonePalette } from "@/lib/scenes/types";
 import type { SceneRecord } from "@/lib/scenes/types";
 import { ApplyingOverlay } from "@/components/ApplyingOverlay";
@@ -101,9 +102,31 @@ export function StudioConfigurator({
   );
   const [activeZone, setActiveZone] = useState(() => firstZoneId(scene));
   const [advancedOptions, setAdvancedOptions] = useState(false);
-  const [selectedCatalogId, setSelectedCatalogId] = useState(() =>
-    defaultCatalogForPalette(catalogs, scene.zones.find((z) => z.id === firstZoneId(scene))?.palette ?? "wood")
-  );
+  const [selectedCatalogId, setSelectedCatalogId] = useState(() => {
+    const saved = loadStudioCatalogNav();
+    if (saved?.catalogId && catalogs.some((c) => c.id === saved.catalogId)) {
+      return saved.catalogId;
+    }
+    return defaultCatalogForPalette(
+      catalogs,
+      scene.zones.find((z) => z.id === firstZoneId(scene))?.palette ?? "wood"
+    );
+  });
+  const [catalogDrillDown, setCatalogDrillDown] = useState<CatalogDrillDown>(() => {
+    const saved = loadStudioCatalogNav();
+    if (saved) {
+      return {
+        browsingFolders: saved.browsingFolders,
+        openSeriesId: saved.openSeriesId,
+        filter: saved.filter ?? "",
+      };
+    }
+    return {
+      browsingFolders: catalogs.length > 1,
+      openSeriesId: null,
+      filter: "",
+    };
+  });
 
   // Scene zones already come from uploaded cutouts only — never invent placeholder zones.
   const sceneZones = scene.zones;
@@ -295,6 +318,8 @@ export function StudioConfigurator({
         activeZonePalette={activePalette}
         selectedHex={activeHex}
         onPick={handleColorPick}
+        drillDown={catalogDrillDown}
+        onDrillDownChange={setCatalogDrillDown}
       />
       <div className="hidden border-t border-divider lg:block">{lookPanel}</div>
     </>

@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { formatPKR } from "@/lib/rates";
-import { SHOP } from "@/lib/constants";
+import { resolveSheetRate } from "@/lib/rates";
 import { SwatchThumb } from "@/components/SwatchThumb";
+import { StockRateBadge } from "@/components/StockRateBadge";
 import type { CatalogMaterial } from "@/lib/catalogs/materials";
 
 interface MaterialDetailClientProps {
@@ -14,7 +14,14 @@ interface MaterialDetailClientProps {
 
 export function MaterialDetailClient({ material }: MaterialDetailClientProps) {
   const { t } = useLanguage();
-  const { swatch, catalogName, catalogId } = material;
+  const { swatch, catalogName } = material;
+
+  const substrateLabel =
+    swatch.substrate === "mdf"
+      ? t("substrateMdf")
+      : swatch.substrate === "chipboard"
+        ? t("substrateChipboard")
+        : undefined;
 
   const specs = [
     { label: t("productCode"), value: swatch.sheetCode },
@@ -23,12 +30,16 @@ export function MaterialDetailClient({ material }: MaterialDetailClientProps) {
     { label: t("dimensions"), value: swatch.dimensions },
     { label: t("thickness"), value: swatch.thickness },
     { label: t("brandName"), value: catalogName },
+    { label: t("substrate"), value: substrateLabel },
   ].filter((s) => s.value);
 
   const imageSrc = swatch.imageUrl ?? undefined;
-  const whatsappDealer = `https://wa.me/${SHOP.whatsapp}?text=${encodeURIComponent(
-    `Hi, I'm interested in sheet ${swatch.sheetCode} (${swatch.name}) from ${catalogName}. Please connect me with a dealer.`
-  )}`;
+  const rate = resolveSheetRate({
+    pricePKR: swatch.pricePKR,
+    materialCategory: swatch.materialCategory,
+    substrate: swatch.substrate,
+    description: swatch.description,
+  });
 
   const categoryLabel =
     swatch.materialCategory ??
@@ -99,12 +110,14 @@ export function MaterialDetailClient({ material }: MaterialDetailClientProps) {
               {swatch.name}
             </h1>
             <p className="font-mono-data mt-2 text-lg text-muted">{swatch.sheetCode}</p>
-            {(swatch.pricePKR ?? 0) > 0 && (
-              <p className="font-mono-data mt-3 text-lg text-brass">
-                {formatPKR(swatch.pricePKR!)}{" "}
-                <span className="text-sm text-muted">{t("perSheet")}</span>
-              </p>
-            )}
+
+            <div className="mt-4">
+              <StockRateBadge
+                rate={rate}
+                stock={swatch.stock}
+                lowStockAt={swatch.lowStockAt}
+              />
+            </div>
 
             {desc && <p className="mt-6 leading-relaxed text-muted">{desc}</p>}
 
@@ -119,14 +132,6 @@ export function MaterialDetailClient({ material }: MaterialDetailClientProps) {
                   {t("technicalSheet")} ↓
                 </a>
               )}
-              <a
-                href={whatsappDealer}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-outline"
-              >
-                {t("findDealer")} →
-              </a>
               <Link href="/gallery/kitchen" className="btn-primary">
                 {t("visualizeThis")}
               </Link>

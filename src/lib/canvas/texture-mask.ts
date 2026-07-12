@@ -58,11 +58,15 @@ export function computeTextureTileSize(
   textureW: number,
   textureH: number,
   canvasW: number,
-  canvasH: number
+  canvasH: number,
+  /** <1 → finer grain (textured series). */
+  scale = 1
 ): { tileW: number; tileH: number } {
   const sceneH = Math.max(canvasH, 1);
   const ppf =
-    Math.min(MAX_PPF, Math.max(MIN_PPF, sceneH / ROOM_HEIGHT_FT)) * TILE_SCALE;
+    Math.min(MAX_PPF, Math.max(MIN_PPF, sceneH / ROOM_HEIGHT_FT)) *
+    TILE_SCALE *
+    Math.max(0.55, Math.min(1.25, scale));
   const sheetLongPx = Math.max(40, Math.floor(SHEET_LONG_FT * ppf));
   const sheetShortPx = Math.max(20, Math.floor(SHEET_SHORT_FT * ppf));
 
@@ -130,7 +134,8 @@ function drawTiledTexture(
   texture: HTMLImageElement,
   width: number,
   height: number,
-  textureUrl?: string
+  textureUrl?: string,
+  textureScale = 1
 ): void {
   const fullW = texture.naturalWidth || texture.width;
   const fullH = texture.naturalHeight || texture.height;
@@ -140,7 +145,13 @@ function drawTiledTexture(
   const srcW = crop?.sw ?? fullW;
   const srcH = crop?.sh ?? fullH;
 
-  const { tileW, tileH } = computeTextureTileSize(srcW, srcH, width, height);
+  const { tileW, tileH } = computeTextureTileSize(
+    srcW,
+    srcH,
+    width,
+    height,
+    textureScale
+  );
   const tile = bakeSealedTile(texture, tileW, tileH, crop);
 
   const stepX = Math.max(1, tileW - TILE_OVERLAP_PX);
@@ -214,6 +225,15 @@ function readImageData(source: CanvasImageSource, width: number, height: number)
   return ctx.getImageData(0, 0, width, height);
 }
 
+export interface TextureizeOptions {
+  /** Effective RGB boost (1 = none). From series hint × matt/glossy mode. */
+  glossMultiplier?: number;
+  /** Tile scale (<1 = finer grain for textured series). */
+  textureScale?: number;
+  /** Extra luminance contrast for grain feel (0–0.2 typical). */
+  grainEmphasis?: number;
+}
+
 /** Apply a texture sheet (URL image) inside the mask — fast GPU compositing. */
 export function textureizeMask(
   mask: CanvasImageSource,
@@ -222,23 +242,38 @@ export function textureizeMask(
   height: number,
   glossy: boolean,
   luminanceSource?: CanvasImageSource,
-  textureUrl?: string
+  textureUrl?: string,
+  options?: TextureizeOptions
 ): HTMLCanvasElement {
   const off = document.createElement("canvas");
   off.width = width;
   off.height = height;
   const ctx = off.getContext("2d")!;
 
-  drawTiledTexture(ctx, texture, width, height, textureUrl ?? texture.src);
+  const textureScale = options?.textureScale ?? 1;
+  const grainEmphasis = options?.grainEmphasis ?? 0;
+  const glossMultiplier =
+    options?.glossMultiplier ?? (glossy ? 1.06 : 1);
+
+  drawTiledTexture(
+    ctx,
+    texture,
+    width,
+    height,
+    textureUrl ?? texture.src,
+    textureScale
+  );
 
   if (luminanceSource) {
     const basePx = readImageData(luminanceSource, width, height);
     const texPx = ctx.getImageData(0, 0, width, height);
+    const lumLo = 0.78 - grainEmphasis * 0.35;
+    const lumSpan = 0.22 + grainEmphasis * 0.55;
     for (let i = 0; i < texPx.data.length; i += 4) {
       const baseLum =
         (0.299 * basePx.data[i] + 0.587 * basePx.data[i + 1] + 0.114 * basePx.data[i + 2]) /
         255;
-      const factor = 0.78 + 0.22 * baseLum;
+      const factor = lumLo + lumSpan * baseLum;
       texPx.data[i] = Math.min(255, Math.round(texPx.data[i] * factor));
       texPx.data[i + 1] = Math.min(255, Math.round(texPx.data[i + 1] * factor));
       texPx.data[i + 2] = Math.min(255, Math.round(texPx.data[i + 2] * factor));
@@ -250,14 +285,14 @@ export function textureizeMask(
   ctx.globalCompositeOperation = "destination-in";
   ctx.drawImage(clip, 0, 0);
 
-  if (glossy) {
+  if (glossMultiplier !== 1) {
     const imgData = ctx.getImageData(0, 0, width, height);
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] === 0) continue;
-      d[i] = Math.min(255, d[i] * 1.06);
-      d[i + 1] = Math.min(255, d[i + 1] * 1.06);
-      d[i + 2] = Math.min(255, d[i + 2] * 1.06);
+      d[i] = Math.min(255, d[i] * glossMultiplier);
+      d[i + 1] = Math.min(255, d[i + 1] * glossMultiplier);
+      d[i + 2] = Math.min(255, d[i + 2] * glossMultiplier);
     }
     ctx.putImageData(imgData, 0, 0);
   }
