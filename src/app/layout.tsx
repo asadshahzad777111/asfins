@@ -19,14 +19,23 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
+const SITE_DESCRIPTION =
+  "ASFins colour studio — preview wood & laminate on real kitchen photos in Lahore. Patex, ZRK and partner catalogs, then request a dealer quote.";
+
+const OG_IMAGE = {
+  url: "/scenes/kitchen-modern/base.jpg",
+  width: 1600,
+  height: 1000,
+  alt: "ASFins — colour studio kitchen preview",
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
     default: `${SITE.legalName} — ${SITE.taglineEn}`,
     template: `%s · ${SITE.shortName}`,
   },
-  description:
-    "ASFins colour studio — preview wood & laminate on real kitchen photos in Lahore. Patex, ZRK and partner catalogs, then request a dealer quote.",
+  description: SITE_DESCRIPTION,
   keywords: [
     "interior design",
     "laminate",
@@ -44,8 +53,15 @@ export const metadata: Metadata = {
     locale: "en_PK",
     type: "website",
     url: SITE.url,
-    title: SITE.legalName,
+    title: `${SITE.shortName} · ${SITE.legalName}`,
     description: SITE.taglineEn,
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE.shortName} · ${SITE.legalName}`,
+    description: SITE.taglineEn,
+    images: [OG_IMAGE.url],
   },
 };
 

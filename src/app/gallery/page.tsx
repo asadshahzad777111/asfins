@@ -8,7 +8,7 @@ export default async function GalleryPage() {
   const counts = ROOM_CATEGORIES.map((cat) => ({
     ...cat,
     count: scenes.filter((s) => s.category === cat.id).length,
-  }));
+  })).filter((cat) => cat.count > 0);
 
   return <GalleryPageClient categories={counts} />;
 }

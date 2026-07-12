@@ -11,6 +11,8 @@ export interface ZrkCatalogCardProps {
   title: string;
   subtitle?: string;
   meta?: string;
+  /** Brand / company (e.g. Patex, ZRK) — shown on the card face */
+  brand?: string;
   active?: boolean;
   href?: string;
   onClick?: () => void;
@@ -25,6 +27,7 @@ export function ZrkCatalogCard({
   title,
   subtitle,
   meta,
+  brand,
   active,
   href,
   onClick,
@@ -45,6 +48,11 @@ export function ZrkCatalogCard({
         ) : (
           <div className="h-full w-full bg-charcoal/10" />
         )}
+        {brand && (
+          <span className="absolute left-2 top-2 z-[1] bg-ink/85 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-paper">
+            {brand}
+          </span>
+        )}
         <div className="zrk-catalog-card__overlay" aria-hidden>
           <div className="zrk-catalog-card__overlay-inner">
             <p className="zrk-catalog-card__title">{title}</p>
@@ -56,7 +64,16 @@ export function ZrkCatalogCard({
       <div
         className={`zrk-catalog-card__code ${active ? "is-active" : ""}`}
       >
-        {code}
+        {brand ? (
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="truncate">{code}</span>
+            <span className="shrink-0 text-[10px] uppercase tracking-[0.1em] text-muted">
+              {brand}
+            </span>
+          </span>
+        ) : (
+          code
+        )}
       </div>
     </>
   );

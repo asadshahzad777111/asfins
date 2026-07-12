@@ -19,10 +19,35 @@ export const translations = {
       "Choose a kitchen photo, tap a wood/laminate swatch — cabinets update instantly on the photo.",
     allRoomTypes: "Browse kitchens →",
     admin: "Admin",
-    emptyGallery: "Gallery is empty. Ask admin to add kitchen photos.",
+    emptyGallery: "Kitchen scenes coming soon.",
     pickWoodColour: "Pick wood colour →",
     zonesCustomize: "{count} zones · Pick wood colour →",
     shopTagline: "Wood & laminate colour, seen on real kitchens — before you commit.",
+    about: "About",
+    contact: "Contact",
+    aboutTitle: "About ASFins",
+    aboutBody1:
+      "ASFins is the colour studio of Aspire Interiors in Lahore. We help you see wood, laminate, and marble finishes on real kitchen photos — before you buy or build.",
+    aboutBody2:
+      "Browse partner catalogs (Patex, ZRK and more), try finishes in the studio, then message us for a dealer quote.",
+    contactTitle: "Contact",
+    contactSubtitle:
+      "Tell us about your kitchen or material interest. WhatsApp is fastest; you can also leave a short note below.",
+    contactWhatsApp: "WhatsApp",
+    contactEmail: "Email",
+    contactStudioCta: "Open the colour studio",
+    chatOnWhatsApp: "Chat on WhatsApp",
+    whatsappPrefill:
+      "Hi ASFins — I'd like to discuss a kitchen colour / material quote.",
+    quoteFormHeading: "Request a quote",
+    quoteFormName: "Name",
+    quoteFormPhone: "Phone / WhatsApp",
+    quoteFormMessage: "Message (optional)",
+    quoteFormSubmit: "Send interest",
+    quoteFormSending: "Sending…",
+    quoteFormSuccess:
+      "Thanks — we received your note. We'll get back to you soon. You can also WhatsApp us anytime.",
+    quoteFormError: "Could not send. Please try WhatsApp, or try again.",
 
     // Gallery
     roomGallery: "Kitchen Gallery",
@@ -105,7 +130,7 @@ export const translations = {
     // Gallery category
     allRooms: "← All rooms",
     choosePhoto: "Tap a photo to pick wood colours",
-    emptyCategory: "No photos in this category yet. Ask admin to add some.",
+    emptyCategory: "Coming soon — new room photos for this category.",
 
     // Products
     productsTitle: "Material catalogs",
@@ -590,10 +615,35 @@ export const translations = {
       "Kitchen photo choose karein, wood/laminate swatch par tap karein — cabinets turant photo par change ho jayenge.",
     allRoomTypes: "Kitchens dekhein →",
     admin: "Admin",
-    emptyGallery: "Gallery abhi khali hai. Admin se kitchen photos add karwain.",
+    emptyGallery: "Kitchen scenes jaldi aa rahe hain.",
     pickWoodColour: "Wood colour choose karein →",
     zonesCustomize: "{count} zones · Wood colour choose karein →",
     shopTagline: "Wood aur laminate colour — asli kitchen photos par, decide se pehle.",
+    about: "About",
+    contact: "Contact",
+    aboutTitle: "ASFins ke baare mein",
+    aboutBody1:
+      "ASFins, Aspire Interiors (Lahore) ka colour studio hai. Wood, laminate aur marble finishes asli kitchen photos par dekhein — kharidne ya banane se pehle.",
+    aboutBody2:
+      "Partner catalogs (Patex, ZRK aur zyada) browse karein, studio mein finish try karein, phir dealer quote ke liye message karein.",
+    contactTitle: "Contact",
+    contactSubtitle:
+      "Kitchen ya material ke baare mein batayein. WhatsApp sab se tez hai; neeche short note bhi chor sakte hain.",
+    contactWhatsApp: "WhatsApp",
+    contactEmail: "Email",
+    contactStudioCta: "Colour studio kholein",
+    chatOnWhatsApp: "WhatsApp par baat karein",
+    whatsappPrefill:
+      "Assalam o alaikum ASFins — mujhe kitchen colour / material quote chahiye.",
+    quoteFormHeading: "Quote request",
+    quoteFormName: "Name",
+    quoteFormPhone: "Phone / WhatsApp",
+    quoteFormMessage: "Message (optional)",
+    quoteFormSubmit: "Bhejein",
+    quoteFormSending: "Bhej rahe hain…",
+    quoteFormSuccess:
+      "Shukriya — message mil gaya. Jaldi jawab denge. WhatsApp se bhi contact kar sakte hain.",
+    quoteFormError: "Send nahi hua. WhatsApp try karein, ya dobara koshish karein.",
 
     roomGallery: "Kitchen Gallery",
     galleryTitle: "Kitchen choose karein",
@@ -674,7 +724,7 @@ export const translations = {
 
     allRooms: "← Tamam rooms",
     choosePhoto: "Photo tap karein aur wood colour choose karein",
-    emptyCategory: "Is category mein abhi koi photo nahi. Admin se add karwain.",
+    emptyCategory: "Coming soon — is category ke liye nayi photos aa rahi hain.",
 
     productsTitle: "Material catalogs",
     productsSubtitle:

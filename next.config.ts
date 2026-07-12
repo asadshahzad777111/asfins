@@ -10,6 +10,15 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "50mb",
     },
   },
+  async redirects() {
+    return [
+      {
+        source: "/materials",
+        destination: "/products",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

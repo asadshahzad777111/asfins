@@ -35,10 +35,10 @@ export function HomePageClient({ kitchens }: HomePageClientProps) {
           {t("allRoomTypes")}
         </Link>
         <Link
-          href="/admin"
+          href="/contact"
           className="rounded-sm px-4 py-3 font-mono-data text-xs text-muted hover:text-brass"
         >
-          {t("admin")}
+          {t("contact")}
         </Link>
       </div>
 

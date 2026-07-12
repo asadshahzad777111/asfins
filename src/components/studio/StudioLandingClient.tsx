@@ -7,6 +7,7 @@ import { SHOP } from "@/lib/constants";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { StickyWhatsAppButton } from "@/components/StickyWhatsAppButton";
 import { FinishMarquee } from "@/components/FinishMarquee";
 import { BeforeAfterSlider } from "./BeforeAfterSlider";
 import { Reveal, SplitLines } from "@/components/motion/Reveal";
@@ -48,6 +49,18 @@ export function StudioLandingClient() {
             className="nav-underline hidden text-[13px] md:inline"
           >
             {t("products")}
+          </Link>
+          <Link
+            href="/about"
+            className="nav-underline hidden text-[13px] lg:inline"
+          >
+            {t("about")}
+          </Link>
+          <Link
+            href="/contact"
+            className="nav-underline hidden text-[13px] lg:inline"
+          >
+            {t("contact")}
           </Link>
           <LanguageSwitcher variant="dark" />
         </div>
@@ -177,7 +190,7 @@ export function StudioLandingClient() {
             {t("manifesto")}
           </p>
           <p className="mt-10 text-[13px] tracking-[0.08em] text-paper/50">
-            {t("atelierMark")} · ©{new Date().getFullYear().toString().slice(2)}
+            {t("atelierMark")} · © {new Date().getFullYear()}
           </p>
         </Reveal>
       </section>
@@ -300,15 +313,22 @@ export function StudioLandingClient() {
             <Link href="/products" className="hover:text-paper">
               {t("products")}
             </Link>
+            <Link href="/about" className="hover:text-paper">
+              {t("about")}
+            </Link>
+            <Link href="/contact" className="hover:text-paper">
+              {t("contact")}
+            </Link>
             <Link href="/studio/kitchen" className="hover:text-paper">
               {t("enterStudio")}
             </Link>
           </div>
         </div>
         <p className="mt-6 text-[12px] text-paper/35">
-          © {new Date().getFullYear()} {SHOP.name} · {t("madeInPakistan")}
+          © {new Date().getFullYear()} {SHOP.name} · {SHOP.legalName} · {t("madeInPakistan")}
         </p>
       </footer>
+      <StickyWhatsAppButton />
     </div>
   );
 }

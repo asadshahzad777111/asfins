@@ -50,6 +50,7 @@ type CatalogItem = {
   title: string;
   subtitle?: string;
   meta?: string;
+  brand?: string;
 };
 
 function initialProductsNav() {
@@ -142,6 +143,7 @@ export function ProductsPageClient({
             code: m.swatch.sheetCode,
             title: m.swatch.name,
             subtitle: m.swatch.materialCategory ?? m.catalogName,
+            brand: m.catalogName,
             meta:
               rate > 0
                 ? `${formatPKR(rate)} · ${t(stockStatusLabelKey(status))}`
@@ -175,6 +177,7 @@ export function ProductsPageClient({
             code: p.productCode ?? p.id,
             title: p.name,
             subtitle: p.category,
+            brand: p.brandName,
             meta:
               rate > 0
                 ? `${formatPKR(rate)} · ${t(stockStatusLabelKey(status))}`
@@ -415,6 +418,7 @@ export function ProductsPageClient({
                           title={item.title}
                           subtitle={item.subtitle}
                           meta={item.meta}
+                          brand={item.brand}
                         />
                       </Reveal>
                     </motion.div>

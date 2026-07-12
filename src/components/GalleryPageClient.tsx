@@ -42,7 +42,12 @@ export function GalleryPageClient({ categories }: GalleryPageClientProps) {
         </motion.div>
 
         <div className="mt-16 grid gap-0 border-t border-ink sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat, i) => (
+          {categories.length === 0 ? (
+            <p className="col-span-full border-b border-ink p-10 text-center text-muted sm:border-r-0">
+              {t("emptyGallery")}
+            </p>
+          ) : (
+            categories.map((cat, i) => (
             <Reveal key={cat.id} delay={i * 0.05} className="border-b border-ink sm:border-r sm:[&:nth-child(2n)]:border-r-0 lg:[&:nth-child(2n)]:border-r lg:[&:nth-child(3n)]:border-r-0">
               <Link href={`/gallery/${cat.id}`} className="group block">
                 <div className="image-mask relative aspect-[4/3] overflow-hidden bg-ink">
@@ -81,7 +86,8 @@ export function GalleryPageClient({ categories }: GalleryPageClientProps) {
                 </div>
               </Link>
             </Reveal>
-          ))}
+          ))
+          )}
         </div>
       </div>
     </div>

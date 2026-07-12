@@ -483,6 +483,15 @@ export function StudioConfigurator({
             <button
               type="button"
               disabled={!ready}
+              onClick={handleWhatsApp}
+              className="bg-[#25D366] px-3.5 py-3 font-mono-data text-[10px] uppercase tracking-wider text-white disabled:opacity-40"
+              aria-label={t("sendWhatsApp")}
+            >
+              WA
+            </button>
+            <button
+              type="button"
+              disabled={!ready}
               onClick={handleDownload}
               className="border border-ink/20 bg-paper px-4 py-3 font-mono-data text-[10px] uppercase tracking-wider text-ink disabled:opacity-40"
             >

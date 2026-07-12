@@ -12,9 +12,13 @@ const NAV_LINKS = [
   { href: "/studio", key: "virtualDesignStudio" as const },
   { href: "/gallery", key: "gallery" as const },
   { href: "/products", key: "products" as const },
+  { href: "/about", key: "about" as const },
+  { href: "/contact", key: "contact" as const },
 ];
 
-const HEADER_QUICK_LINKS = NAV_LINKS.filter((l) => l.href !== "/studio");
+const HEADER_QUICK_LINKS = NAV_LINKS.filter(
+  (l) => l.href === "/gallery" || l.href === "/products"
+);
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -37,7 +41,7 @@ export function Header() {
             </p>
           </Link>
 
-          <nav className="hidden flex-1 items-center justify-center gap-8 md:flex">
+          <nav className="hidden flex-1 items-center justify-center gap-7 lg:flex">
             {NAV_LINKS.map((link) => {
               const active =
                 pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -56,8 +60,7 @@ export function Header() {
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-2.5 sm:gap-4">
-            {/* Mobile: Gallery + Materials visible in the bar (not only Menu) */}
-            <nav className="flex items-center gap-3 md:hidden" aria-label="Quick links">
+            <nav className="flex items-center gap-3 lg:hidden" aria-label="Quick links">
               {HEADER_QUICK_LINKS.map((link) => {
                 const active =
                   pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -83,7 +86,7 @@ export function Header() {
             </Link>
             <button
               type="button"
-              className="text-[13px] md:hidden"
+              className="text-[13px] lg:hidden"
               aria-expanded={menuOpen}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               onClick={() => setMenuOpen((v) => !v)}
@@ -101,7 +104,7 @@ export function Header() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease }}
-            className="fixed inset-0 z-40 flex flex-col bg-ink px-[clamp(1.25rem,4vw,2.5rem)] pb-10 pt-24 text-paper md:hidden"
+            className="fixed inset-0 z-40 flex flex-col bg-ink px-[clamp(1.25rem,4vw,2.5rem)] pb-10 pt-24 text-paper lg:hidden"
           >
             <nav className="flex flex-1 flex-col justify-center gap-2">
               {NAV_LINKS.map((link, i) => (
@@ -123,7 +126,7 @@ export function Header() {
               <motion.div
                 initial={{ y: 24, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.28, duration: 0.45, ease }}
+                transition={{ delay: 0.35, duration: 0.45, ease }}
               >
                 <Link
                   href="/studio/kitchen"
@@ -143,6 +146,7 @@ export function Header() {
 
 export function Footer() {
   const { t } = useLanguage();
+  const year = new Date().getFullYear();
 
   return (
     <footer className="mt-auto bg-ink py-14 text-paper">
@@ -168,13 +172,16 @@ export function Footer() {
             <Link href="/products" className="nav-underline hover:opacity-70">
               {t("products")}
             </Link>
-            <Link href="/admin" className="text-paper/35 hover:text-paper/70">
-              {t("admin")}
+            <Link href="/about" className="nav-underline hover:opacity-70">
+              {t("about")}
+            </Link>
+            <Link href="/contact" className="nav-underline hover:opacity-70">
+              {t("contact")}
             </Link>
           </div>
         </div>
         <p className="mt-8 text-[12px] text-paper/35">
-          © {new Date().getFullYear()} {SHOP.name} · {t("madeInPakistan")}
+          © {year} {SHOP.name} · {SHOP.legalName} · {SHOP.city} · {t("madeInPakistan")}
         </p>
       </div>
     </footer>
