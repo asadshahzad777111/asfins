@@ -756,6 +756,38 @@ body {
   cursor: not-allowed;
 }
 
+/* Zone / toolbar chips — monochrome theme uses brass=#000; never pair bg-brass + text-ink */
+.studio-chip {
+  border-radius: 0;
+  border: 1px solid transparent;
+}
+
+.studio-chip--active {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  box-shadow: none;
+  border-color: var(--color-ink);
+}
+
+.studio-chip--idle {
+  background: var(--color-base);
+  color: var(--color-muted);
+  border-color: var(--color-divider);
+}
+
+.studio-chip--idle:hover {
+  background: #fff;
+  color: var(--color-charcoal);
+  border-color: rgba(0, 0, 0, 0.28);
+}
+
+.studio-mobile-cta:focus-visible,
+.studio-chip--active:focus-visible,
+.studio-chip--idle:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
 .studio-swatch {
   will-change: transform;
 }

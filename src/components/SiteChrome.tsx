@@ -14,6 +14,8 @@ const NAV_LINKS = [
   { href: "/products", key: "products" as const },
 ];
 
+const HEADER_QUICK_LINKS = NAV_LINKS.filter((l) => l.href !== "/studio");
+
 const ease = [0.22, 1, 0.36, 1] as const;
 
 export function Header() {
@@ -24,7 +26,7 @@ export function Header() {
   return (
     <>
       <header className="site-header-glass sticky top-0 z-50 text-ink">
-        <div className="flex items-center gap-4 px-[clamp(1.25rem,4vw,2.5rem)] py-4">
+        <div className="flex items-center gap-3 px-[clamp(1.25rem,4vw,2.5rem)] py-4 sm:gap-4">
           <Link href="/studio" className="flex shrink-0 flex-col">
             <p className="font-display text-lg leading-none tracking-tight sm:text-xl">
               {SHOP.name}
@@ -53,7 +55,25 @@ export function Header() {
             })}
           </nav>
 
-          <div className="ml-auto flex shrink-0 items-center gap-3 sm:gap-4">
+          <div className="ml-auto flex shrink-0 items-center gap-2.5 sm:gap-4">
+            {/* Mobile: Gallery + Materials visible in the bar (not only Menu) */}
+            <nav className="flex items-center gap-3 md:hidden" aria-label="Quick links">
+              {HEADER_QUICK_LINKS.map((link) => {
+                const active =
+                  pathname === link.href || pathname.startsWith(`${link.href}/`);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`text-[12px] tracking-wide ${
+                      active ? "text-ink" : "text-muted hover:text-ink"
+                    }`}
+                  >
+                    {t(link.key)}
+                  </Link>
+                );
+              })}
+            </nav>
             <LanguageSwitcher variant="light" />
             <Link
               href="/studio/kitchen"

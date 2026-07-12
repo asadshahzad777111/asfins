@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import type { Catalog } from "@/lib/catalogs/types";
@@ -16,6 +17,8 @@ interface BrandCatalogFoldersProps {
   folders: BrandFolderItem[];
   onOpen: (id: string) => void;
   columns?: "products" | "studio";
+  /** Hide brand mark (use for series folders that are not company logos). */
+  hideBrandLogo?: boolean;
 }
 
 /** Unique brand/catalog folders — click to open that catalog. */
@@ -23,6 +26,7 @@ export function BrandCatalogFolders({
   folders,
   onOpen,
   columns = "products",
+  hideBrandLogo = false,
 }: BrandCatalogFoldersProps) {
   const { t } = useLanguage();
   const grid =
@@ -32,11 +36,14 @@ export function BrandCatalogFolders({
 
   return (
     <div className={grid}>
-      {folders.map((folder) => (
-        <button
+      {folders.map((folder, i) => (
+        <motion.button
           key={folder.id}
           type="button"
           onClick={() => onOpen(folder.id)}
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: Math.min(i * 0.04, 0.28), duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="group relative flex flex-col overflow-hidden border border-divider bg-paper text-left transition hover:border-ink hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)]"
         >
           <div className="relative aspect-[4/3] overflow-hidden bg-base">
@@ -54,9 +61,11 @@ export function BrandCatalogFolders({
               />
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-charcoal/55 via-charcoal/10 to-transparent" />
-            <div className="absolute bottom-2 left-2 right-2 flex items-end gap-2">
-              <BrandLogo brandName={folder.name} className="h-6 w-auto max-w-[40%] object-contain drop-shadow" />
-            </div>
+            {!hideBrandLogo && (
+              <div className="absolute bottom-2 left-2 right-2 flex items-end gap-2">
+                <BrandLogo brandName={folder.name} className="h-6 w-auto max-w-[40%] object-contain drop-shadow" />
+              </div>
+            )}
           </div>
           <div className="flex flex-1 flex-col gap-0.5 px-3 py-2.5">
             <span className="font-display text-sm leading-tight text-charcoal sm:text-base">
@@ -66,7 +75,7 @@ export function BrandCatalogFolders({
               {t("folderSheetCount", { count: folder.count })}
             </span>
           </div>
-        </button>
+        </motion.button>
       ))}
     </div>
   );

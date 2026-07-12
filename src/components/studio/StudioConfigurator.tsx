@@ -240,7 +240,7 @@ export function StudioConfigurator({
           type="button"
           disabled={!ready}
           onClick={handleDownload}
-          className="btn-shine w-full bg-brass py-3 font-mono-data text-[10px] uppercase tracking-[0.14em] text-ink disabled:opacity-40"
+          className="btn-shine w-full bg-ink py-3 font-mono-data text-[10px] uppercase tracking-[0.14em] text-paper disabled:opacity-40"
         >
           {t("downloadDesign")}
         </button>
@@ -248,7 +248,7 @@ export function StudioConfigurator({
           type="button"
           disabled={!ready}
           onClick={handleWhatsApp}
-          className="w-full border border-brass/50 py-3 font-mono-data text-[10px] uppercase tracking-[0.14em] text-brass transition-colors hover:bg-brass/10 disabled:opacity-40"
+          className="w-full border border-ink/40 py-3 font-mono-data text-[10px] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-ink/5 disabled:opacity-40"
         >
           {t("sendWhatsApp")}
         </button>
@@ -398,14 +398,14 @@ export function StudioConfigurator({
             <button
               type="button"
               onClick={() => setMobileScenesOpen(true)}
-              className="border border-divider px-3 py-3 font-mono-data text-[10px] uppercase tracking-wider text-muted"
+              className="border border-ink/20 bg-paper px-3 py-3 font-mono-data text-[10px] uppercase tracking-wider text-ink"
             >
               {t("scenePicker")}
             </button>
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="flex-1 bg-brass py-3 font-mono-data text-[10px] uppercase tracking-[0.12em] text-ink"
+              className="studio-mobile-cta flex-1 bg-ink py-3 font-mono-data text-[10px] uppercase tracking-[0.12em] text-paper"
             >
               {materialCode ??
                 t("coloursMobile", {
@@ -417,7 +417,7 @@ export function StudioConfigurator({
               type="button"
               disabled={!ready}
               onClick={handleDownload}
-              className="border border-divider px-4 py-3 font-mono-data text-[10px] uppercase tracking-wider text-muted disabled:opacity-40"
+              className="border border-ink/20 bg-paper px-4 py-3 font-mono-data text-[10px] uppercase tracking-wider text-ink disabled:opacity-40"
             >
               {t("downloadShort")}
             </button>

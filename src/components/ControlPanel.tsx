@@ -79,7 +79,7 @@ export function ControlPanel({
           type="button"
           disabled={!ready}
           onClick={handleDownload}
-          className="btn-shine w-full bg-brass py-3 text-sm font-medium text-ink disabled:opacity-50"
+          className="btn-shine w-full bg-ink py-3 text-sm font-medium text-paper disabled:opacity-50"
         >
           {t("downloadDesign")}
         </button>
@@ -87,7 +87,7 @@ export function ControlPanel({
           type="button"
           disabled={!ready}
           onClick={handleWhatsApp}
-          className="w-full border border-brass py-3 text-sm font-medium text-brass disabled:opacity-50"
+          className="w-full border border-ink/40 py-3 text-sm font-medium text-ink disabled:opacity-50"
         >
           {t("sendWhatsApp")}
         </button>

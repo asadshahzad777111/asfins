@@ -24,7 +24,7 @@ export function ToggleSwitch({ label, options, value, onChange }: ToggleSwitchPr
             onClick={() => onChange(opt.value)}
             className={`rounded-sm px-3 py-1.5 font-mono-data text-xs capitalize transition-colors ${
               value === opt.value
-                ? "bg-brass text-marble"
+                ? "bg-ink text-paper"
                 : "text-muted hover:text-charcoal"
             }`}
           >

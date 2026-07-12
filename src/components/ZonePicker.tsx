@@ -53,12 +53,12 @@ export function ZonePicker({ zones, activeZone, onSelect }: ZonePickerProps) {
                     key={z.id}
                     type="button"
                     onClick={() => onSelect(z.id)}
-                    className={`rounded-sm px-3 py-2 text-xs transition-all ${
+                    className={`studio-chip rounded-sm px-3 py-2 text-xs transition-all ${
                       active
-                        ? "bg-brass text-marble shadow-sm ring-1 ring-brass"
+                        ? "studio-chip--active"
                         : muted
-                          ? "border border-divider/60 bg-base/50 text-muted/70 hover:border-brass/30"
-                          : "border border-divider bg-base text-muted hover:border-brass/50"
+                          ? "studio-chip--idle opacity-80"
+                          : "studio-chip--idle"
                     }`}
                   >
                     {z.label}

@@ -11,6 +11,7 @@ import { catalogsForPalette } from "@/lib/catalogs/materials";
 import type { RoomCategory, SceneRecord, ZonePalette } from "@/lib/scenes/types";
 import {
   buildDefaultStudioTargets,
+  buildMergedStudioTargets,
   getSingleInstanceZoneQuestions,
   getZoneQuestions,
   mergeAssignmentsToStudioZones,
@@ -1286,9 +1287,18 @@ export function SceneSetupWizard({
               <button
                 type="button"
                 className="wp-button wp-button--secondary wp-button--small"
-                onClick={() => setStudioTargetOverrides({})}
+                onClick={() =>
+                  setStudioTargetOverrides(buildMergedStudioTargets(assignments))
+                }
               >
                 {t("wizardMergeAllCabinets")}
+              </button>
+              <button
+                type="button"
+                className="wp-button wp-button--secondary wp-button--small"
+                onClick={() => setStudioTargetOverrides({})}
+              >
+                {t("wizardKeepCabinetsSeparate")}
               </button>
               <span className="text-sm self-center text-[var(--muted)]">
                 {t("wizardStudioPreview", {

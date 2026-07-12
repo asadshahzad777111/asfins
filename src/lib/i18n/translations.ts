@@ -4,7 +4,7 @@ export const translations = {
   en: {
     // Header / nav
     gallery: "Gallery",
-    products: "Products",
+    products: "Materials",
     home: "Home",
     madeInPakistan: "Made in Pakistan",
     langEn: "EN",
@@ -108,13 +108,17 @@ export const translations = {
     emptyCategory: "No photos in this category yet. Ask admin to add some.",
 
     // Products
-    productsTitle: "Finishes & sheet catalogs",
+    productsTitle: "Material catalogs",
     productsSubtitle:
-      "Patex, ZRK, and partner sheets — tap a swatch for details, then try it in the studio.",
+      "Browse by brand and series — woods now; floors, walls, and curtains later. Tap a swatch for details, then try it in the studio.",
     emptyProducts: "No products yet. Add them from the admin panel.",
     chooseBrandFolder: "Choose a brand",
     allBrandFolders: "← All brands",
+    chooseSeriesFolder: "Choose a series",
+    allSeriesFolders: "← All series",
     folderSheetCount: "{count} sheets",
+    folderSeriesCount: "{count} series",
+    ratesComingSoon: "Rates coming soon",
     tryInConfigurator: "Try in configurator →",
     viewProduct: "View details →",
     allProducts: "← All products",
@@ -471,13 +475,14 @@ export const translations = {
     wizardParseError: "Could not parse cutout image.",
     wizardNoZonesMapped: "Map at least one zone before saving.",
     wizardReviewDesc:
-      "Review which Studio control each tagged area uses. Merge left/centre/right cabinets into one control so customers apply one colour to all parts.",
+      "Review which Studio control each tagged area uses. Left and right stay separate by default — merge only when you want one colour button for multiple parts.",
     wizardRegions: "Regions",
     wizardTaggedAs: "Tagged as",
     wizardStudioControl: "Studio control (customer sees)",
     wizardMergeCabinetsHint:
-      "Same Studio control = one button in the Design Studio; colour applies to every region in that group.",
+      "Same Studio control = one button in the Design Studio. Different controls (e.g. Lower left vs Lower right) = separate colour picks. Already-saved merged scenes need a re-map + save to split again.",
     wizardMergeAllCabinets: "Merge all cabinet parts into Lower / Upper / Island",
+    wizardKeepCabinetsSeparate: "Keep tagged parts separate",
     wizardStudioPreview: "Customer will see {count} zone(s)",
     wizardSkippedZones: "Skipped zones",
     wizardEditSkipped: "Edit skipped",
@@ -554,7 +559,7 @@ export const translations = {
   },
   ur: {
     gallery: "Gallery",
-    products: "Products",
+    products: "Materials",
     home: "Home",
     madeInPakistan: "Made in Pakistan",
     langEn: "EN",
@@ -654,13 +659,17 @@ export const translations = {
     choosePhoto: "Photo tap karein aur wood colour choose karein",
     emptyCategory: "Is category mein abhi koi photo nahi. Admin se add karwain.",
 
-    productsTitle: "Finishes aur sheet catalogs",
+    productsTitle: "Material catalogs",
     productsSubtitle:
-      "Patex, ZRK, aur partner sheets — swatch tap karein, phir studio mein try karein.",
+      "Brand aur series se browse karein — ab woods; baad mein floors, walls, curtains. Swatch tap karein, phir studio mein try karein.",
     emptyProducts: "Abhi koi product nahi. Admin panel se add karein.",
     chooseBrandFolder: "Brand choose karein",
     allBrandFolders: "← Tamam brands",
+    chooseSeriesFolder: "Series choose karein",
+    allSeriesFolders: "← Tamam series",
     folderSheetCount: "{count} sheets",
+    folderSeriesCount: "{count} series",
+    ratesComingSoon: "Rates jald aa rahe hain",
     tryInConfigurator: "Configurator mein try karein →",
     viewProduct: "Details dekhein →",
     allProducts: "← Tamam products",
@@ -1006,13 +1015,14 @@ export const translations = {
     wizardParseError: "Cutout image parse nahi ho saki.",
     wizardNoZonesMapped: "Save se pehle kam az kam ek zone map karein.",
     wizardReviewDesc:
-      "Har tagged area ka Studio control review karein. Left/centre/right cabinets ko ek control mein merge karein taake customer ek colour se saari parts paint kare.",
+      "Har tagged area ka Studio control review karein. Left/right default alag rehte hain — merge tab karein jab ek colour button chahiye.",
     wizardRegions: "Regions",
     wizardTaggedAs: "Tagged as",
     wizardStudioControl: "Studio control (customer ko dikhega)",
     wizardMergeCabinetsHint:
-      "Same Studio control = Design Studio mein ek button; colour us group ki saari regions par lagega.",
+      "Same Studio control = Design Studio mein ek button. Alag controls (Lower left vs Lower right) = alag colour. Pehle se merged scenes ko split karne ke liye dubara map + save karein.",
     wizardMergeAllCabinets: "Saari cabinet parts ko Lower / Upper / Island mein merge karein",
+    wizardKeepCabinetsSeparate: "Tagged parts alag rakhein",
     wizardStudioPreview: "Customer ko {count} zone(s) dikhengi",
     wizardSkippedZones: "Skipped zones",
     wizardEditSkipped: "Skipped edit karein",

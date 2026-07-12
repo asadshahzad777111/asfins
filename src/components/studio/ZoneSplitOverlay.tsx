@@ -130,7 +130,7 @@ export function ZoneSplitOverlay({
               onPointerUp={endDrag}
               onPointerCancel={endDrag}
               style={{ touchAction: "none", pointerEvents: "auto" }}
-              className={`absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brass text-ink shadow-lg ${
+              className={`absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-ink text-paper shadow-lg ${
                 isVertical ? "cursor-ew-resize" : "cursor-ns-resize"
               }`}
             >

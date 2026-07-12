@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { ZrkCatalogCard } from "@/components/ZrkCatalogCard";
 import {
@@ -13,6 +13,11 @@ import type { Catalog } from "@/lib/catalogs/types";
 import type { CatalogMaterial } from "@/lib/catalogs/materials";
 import type { Product } from "@/lib/products/types";
 import { Reveal } from "@/components/motion/Reveal";
+import {
+  filterSwatchesBySeries,
+  groupSwatchesBySeries,
+  type SeriesFolder,
+} from "@/lib/catalogs/series";
 
 interface ProductsPageClientProps {
   products: Product[];
@@ -22,6 +27,25 @@ interface ProductsPageClientProps {
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
+const folderMotion = {
+  initial: { opacity: 0, y: 18 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -12 },
+  transition: { duration: 0.4, ease },
+};
+
+type CatalogItem = {
+  key: string;
+  href: string;
+  imageSrc?: string;
+  thumbSrc?: string;
+  hex?: string;
+  code: string;
+  title: string;
+  subtitle?: string;
+  meta?: string;
+};
+
 export function ProductsPageClient({
   products,
   materials,
@@ -30,6 +54,7 @@ export function ProductsPageClient({
   const { t } = useLanguage();
   const [filter, setFilter] = useState("");
   const [openCatalogId, setOpenCatalogId] = useState<string | null>(null);
+  const [openSeriesId, setOpenSeriesId] = useState<string | null>(null);
 
   const folders = useMemo(
     () => catalogsToFolders(catalogs, { requireGlobal: true }),
@@ -37,29 +62,52 @@ export function ProductsPageClient({
   );
   const openCatalog = catalogs.find((c) => c.id === openCatalogId) ?? null;
 
+  const seriesFolders: SeriesFolder[] = useMemo(() => {
+    if (!openCatalog) return [];
+    return groupSwatchesBySeries(openCatalog.swatches);
+  }, [openCatalog]);
+
+  const showSeriesStep =
+    Boolean(openCatalogId) &&
+    !openSeriesId &&
+    !filter.trim() &&
+    seriesFolders.length > 1;
+
   const items = useMemo(() => {
     const materialIds = new Set(materials.map((m) => m.swatch.id));
     const scopedMaterials = openCatalogId
       ? materials.filter((m) => m.catalogId === openCatalogId)
       : materials;
+
+    const seriesScoped =
+      openCatalogId && openSeriesId && openCatalog
+        ? filterSwatchesBySeries(openCatalog.swatches, openSeriesId)
+        : null;
+    const seriesIds = seriesScoped
+      ? new Set(seriesScoped.map((s) => s.id))
+      : null;
+
     const brandName = openCatalog?.companyName.toLowerCase() ?? "";
 
-    const all = [
-      ...scopedMaterials.map((m) => ({
-        key: `mat-${m.catalogId}-${m.swatch.id}`,
-        href: `/materials/${m.catalogId}/${m.swatch.id}`,
-        imageSrc: m.swatch.imageUrl,
-        thumbSrc: m.swatch.thumbUrl,
-        hex: m.swatch.hex,
-        code: m.swatch.sheetCode,
-        title: m.swatch.name,
-        subtitle: m.swatch.materialCategory ?? m.catalogName,
-        meta: m.swatch.surfaceFinish,
-      })),
+    const all: CatalogItem[] = [
+      ...scopedMaterials
+        .filter((m) => !seriesIds || seriesIds.has(m.swatch.id))
+        .map((m) => ({
+          key: `mat-${m.catalogId}-${m.swatch.id}`,
+          href: `/materials/${m.catalogId}/${m.swatch.id}`,
+          imageSrc: m.swatch.imageUrl,
+          thumbSrc: m.swatch.thumbUrl,
+          hex: m.swatch.hex,
+          code: m.swatch.sheetCode,
+          title: m.swatch.name,
+          subtitle: m.swatch.materialCategory ?? m.catalogName,
+          meta: m.swatch.surfaceFinish,
+        })),
       ...products
         .filter((p) => !materialIds.has(p.id))
         .filter((p) => {
           if (!openCatalogId) return true;
+          if (openSeriesId) return false;
           if (!brandName) return false;
           return (p.brandName ?? p.category ?? "")
             .toLowerCase()
@@ -85,6 +133,7 @@ export function ProductsPageClient({
       .map((item) => {
         const code = item.code.toLowerCase();
         const title = item.title.toLowerCase();
+        const subtitle = (item.subtitle ?? "").toLowerCase();
         const codeDigits = code.replace(/\D/g, "");
         let score = 0;
         if (code === q || codeDigits === q || (qDigits && codeDigits === qDigits))
@@ -94,6 +143,7 @@ export function ProductsPageClient({
         else if (
           code.includes(q) ||
           title.includes(q) ||
+          subtitle.includes(q) ||
           (qDigits && codeDigits.includes(qDigits))
         )
           score = 1;
@@ -102,9 +152,34 @@ export function ProductsPageClient({
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score || a.item.code.localeCompare(b.item.code))
       .map((x) => x.item);
-  }, [materials, products, filter, openCatalogId, openCatalog]);
+  }, [
+    materials,
+    products,
+    filter,
+    openCatalogId,
+    openCatalog,
+    openSeriesId,
+  ]);
 
   const showFolders = folders.length > 1 && !openCatalogId && !filter.trim();
+  const openSeries = seriesFolders.find((s) => s.id === openSeriesId) ?? null;
+
+  function openBrand(id: string) {
+    setOpenCatalogId(id);
+    setOpenSeriesId(null);
+    setFilter("");
+  }
+
+  function backToBrands() {
+    setOpenCatalogId(null);
+    setOpenSeriesId(null);
+    setFilter("");
+  }
+
+  function backToSeries() {
+    setOpenSeriesId(null);
+    setFilter("");
+  }
 
   return (
     <div className="bg-paper text-ink">
@@ -122,28 +197,28 @@ export function ProductsPageClient({
             <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-muted">
               {t("productsSubtitle")}
             </p>
+            <p className="mt-3 text-[12px] uppercase tracking-[0.12em] text-muted/70">
+              {t("ratesComingSoon")}
+            </p>
           </motion.div>
         </div>
       </section>
 
       <section className="px-[clamp(1.25rem,4vw,2.5rem)] py-12 pb-28 sm:py-16">
-        {showFolders ? (
-          <div className="space-y-8">
-            <p className="text-[13px] uppercase tracking-[0.12em] text-muted">
-              {t("chooseBrandFolder")}
-            </p>
-            <BrandCatalogFolders folders={folders} onOpen={setOpenCatalogId} />
-          </div>
-        ) : (
-          <>
-            {openCatalog && (
-              <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-ink pb-6">
+        <AnimatePresence mode="wait">
+          {showFolders ? (
+            <motion.div key="brands" {...folderMotion} className="space-y-8">
+              <p className="text-[13px] uppercase tracking-[0.12em] text-muted">
+                {t("chooseBrandFolder")}
+              </p>
+              <BrandCatalogFolders folders={folders} onOpen={openBrand} />
+            </motion.div>
+          ) : showSeriesStep && openCatalog ? (
+            <motion.div key={`series-${openCatalog.id}`} {...folderMotion} className="space-y-8">
+              <div className="flex flex-wrap items-center gap-3 border-b border-ink pb-6">
                 <button
                   type="button"
-                  onClick={() => {
-                    setOpenCatalogId(null);
-                    setFilter("");
-                  }}
+                  onClick={backToBrands}
                   className="nav-underline text-[13px] text-muted hover:text-ink"
                 >
                   {t("allBrandFolders")}
@@ -156,69 +231,144 @@ export function ProductsPageClient({
                   </span>
                 </div>
               </div>
-            )}
-
-            <div className="relative mb-10 max-w-md">
-              <input
-                type="search"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder={t("productsFilter")}
-                className="w-full border border-ink bg-paper py-3.5 pl-9 pr-9 text-[14px] placeholder:text-muted/50 focus:outline-none"
-                aria-label={t("productsFilter")}
-              />
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50"
-                width="14"
-                height="14"
-                viewBox="0 0 12 12"
-                fill="none"
-                aria-hidden
-              >
-                <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1" />
-                <path
-                  d="M8 8l2.5 2.5"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  strokeLinecap="round"
-                />
-              </svg>
-              {filter && (
-                <button
-                  type="button"
-                  onClick={() => setFilter("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/50 hover:text-ink"
-                  aria-label={t("clearFilter")}
-                >
-                  ×
-                </button>
-              )}
-            </div>
-
-            {items.length === 0 ? (
-              <p className="border border-ink/15 p-10 text-center text-muted">
-                {filter.trim() ? t("productsNoMatch") : t("emptyProducts")}
+              <p className="text-[13px] uppercase tracking-[0.12em] text-muted">
+                {t("chooseSeriesFolder")}
               </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4">
-                {items.map((item, i) => (
-                  <Reveal key={item.key} delay={(i % 8) * 0.03}>
-                    <ZrkCatalogCard
-                      href={item.href}
-                      imageSrc={item.imageSrc}
-                      thumbSrc={item.thumbSrc}
-                      hex={item.hex}
-                      code={item.code}
-                      title={item.title}
-                      subtitle={item.subtitle}
-                      meta={item.meta}
-                    />
-                  </Reveal>
-                ))}
+              <BrandCatalogFolders
+                folders={seriesFolders.map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  count: s.count,
+                  previewUrl: s.previewUrl,
+                  previewHex: s.previewHex,
+                }))}
+                hideBrandLogo
+                onOpen={(id) => {
+                  setOpenSeriesId(id);
+                  setFilter("");
+                }}
+              />
+            </motion.div>
+          ) : (
+            <motion.div key={`grid-${openCatalogId}-${openSeriesId}`} {...folderMotion}>
+              {(openCatalog || filter.trim()) && (
+                <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-ink pb-6">
+                  {openCatalog && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={backToBrands}
+                        className="nav-underline text-[13px] text-muted hover:text-ink"
+                      >
+                        {t("allBrandFolders")}
+                      </button>
+                      {seriesFolders.length > 1 && (
+                        <>
+                          <span className="text-muted">·</span>
+                          <button
+                            type="button"
+                            onClick={backToSeries}
+                            className="nav-underline text-[13px] text-muted hover:text-ink"
+                          >
+                            {t("allSeriesFolders")}
+                          </button>
+                        </>
+                      )}
+                      <span className="text-muted">·</span>
+                      <div className="flex items-center gap-2">
+                        <BrandLogo
+                          brandName={openCatalog.companyName}
+                          className="h-6 w-auto"
+                        />
+                        <span className="font-display text-xl tracking-tight">
+                          {openCatalog.companyName}
+                          {openSeries ? ` · ${openSeries.name}` : ""}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="relative mb-10 max-w-md">
+                <input
+                  type="search"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder={t("productsFilter")}
+                  className="w-full border border-ink bg-paper py-3.5 pl-9 pr-9 text-[14px] placeholder:text-muted/50 focus:outline-none"
+                  aria-label={t("productsFilter")}
+                />
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/50"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  aria-hidden
+                >
+                  <circle cx="5" cy="5" r="3.5" stroke="currentColor" strokeWidth="1" />
+                  <path
+                    d="M8 8l2.5 2.5"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                {filter && (
+                  <button
+                    type="button"
+                    onClick={() => setFilter("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/50 hover:text-ink"
+                    aria-label={t("clearFilter")}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
-            )}
-          </>
-        )}
+
+              {items.length === 0 ? (
+                <p className="border border-ink/15 p-10 text-center text-muted">
+                  {filter.trim() ? t("productsNoMatch") : t("emptyProducts")}
+                </p>
+              ) : (
+                <motion.div
+                  className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-4"
+                  initial="hidden"
+                  animate="show"
+                  variants={{
+                    hidden: {},
+                    show: { transition: { staggerChildren: 0.03 } },
+                  }}
+                >
+                  {items.map((item, i) => (
+                    <motion.div
+                      key={item.key}
+                      variants={{
+                        hidden: { opacity: 0, y: 12 },
+                        show: { opacity: 1, y: 0 },
+                      }}
+                      transition={{ duration: 0.35, ease }}
+                    >
+                      <Reveal delay={(i % 8) * 0.02}>
+                        <ZrkCatalogCard
+                          href={item.href}
+                          imageSrc={item.imageSrc}
+                          thumbSrc={item.thumbSrc}
+                          hex={item.hex}
+                          code={item.code}
+                          title={item.title}
+                          subtitle={item.subtitle}
+                          meta={item.meta}
+                        />
+                      </Reveal>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
     </div>
   );

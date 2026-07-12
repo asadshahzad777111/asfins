@@ -123,8 +123,8 @@ assert.ok(assetsSrc.includes("process.env.VERCEL"));
 assert.ok(assetsSrc.includes("os.tmpdir()"));
 assert.ok(assetsSrc.includes("uploadBufferToR2") || assetsSrc.includes("persistSceneWorkDir"));
 
-// --- Multi-use zone merge (Advanced → one Studio control) ---
-function defaultStudioZoneId(slotId) {
+// --- Multi-use zone merge (Advanced → optional one Studio control) ---
+function mergedStudioZoneId(slotId) {
   if (
     slotId === "lower-cabinets" ||
     slotId.startsWith("lower-cabinet") ||
@@ -143,6 +143,11 @@ function defaultStudioZoneId(slotId) {
   return slotId;
 }
 
+/** Default: tagged slots stay separate unless admin assigns the same Studio control. */
+function defaultStudioZoneId(slotId) {
+  return slotId;
+}
+
 function mergeAssignmentsToStudioZones(assignments, targetBySlot) {
   const out = {};
   for (const [slotId, regionIds] of Object.entries(assignments)) {
@@ -155,9 +160,22 @@ function mergeAssignmentsToStudioZones(assignments, targetBySlot) {
 }
 
 {
-  assert.strictEqual(defaultStudioZoneId("lower-cabinet-left"), "lower-cabinets");
-  assert.strictEqual(defaultStudioZoneId("lower-cabinet-mid"), "lower-cabinets");
-  assert.strictEqual(defaultStudioZoneId("upper-cabinet-right"), "upper-cabinets");
+  assert.strictEqual(defaultStudioZoneId("lower-cabinet-left"), "lower-cabinet-left");
+  assert.strictEqual(defaultStudioZoneId("lower-cabinet-mid"), "lower-cabinet-mid");
+  assert.strictEqual(mergedStudioZoneId("lower-cabinet-left"), "lower-cabinets");
+  assert.strictEqual(mergedStudioZoneId("upper-cabinet-right"), "upper-cabinets");
+  const keptSeparate = mergeAssignmentsToStudioZones(
+    {
+      "lower-cabinet-left": [0, 1],
+      "lower-cabinet-right": [2],
+    },
+    {
+      "lower-cabinet-left": "lower-cabinet-left",
+      "lower-cabinet-right": "lower-cabinet-right",
+    }
+  );
+  assert.deepStrictEqual(keptSeparate["lower-cabinet-left"], [0, 1]);
+  assert.deepStrictEqual(keptSeparate["lower-cabinet-right"], [2]);
   const merged = mergeAssignmentsToStudioZones(
     {
       "lower-cabinet-left": [0, 1],
@@ -183,6 +201,7 @@ const wizardSrc = readFileSync(
 );
 assert.ok(wizardSrc.includes("mergeAssignmentsToStudioZones"), "wizard must merge on save");
 assert.ok(wizardSrc.includes("wizardStudioControl"), "review UI must show Studio control");
+assert.ok(wizardSrc.includes("buildMergedStudioTargets"), "wizard must support explicit merge");
 
 const zoneWizardSrc = readFileSync(
   path.join(ROOT, "src/lib/scenes/zone-wizard.ts"),
@@ -190,5 +209,7 @@ const zoneWizardSrc = readFileSync(
 );
 assert.ok(zoneWizardSrc.includes("mergeAssignmentsToStudioZones"));
 assert.ok(zoneWizardSrc.includes("STUDIO_CABINET_TARGETS"));
+assert.ok(zoneWizardSrc.includes("buildMergedStudioTargets"));
+assert.ok(zoneWizardSrc.includes("mergedStudioZoneId"));
 
 console.log("smoke-scene-storage: OK");

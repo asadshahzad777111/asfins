@@ -51,14 +51,14 @@ export function SceneSidebar({
                   onClick={onNavigate}
                   className={`studio-scene-item group relative flex items-center gap-2.5 rounded-sm p-2 transition-all ${
                     active
-                      ? "bg-white shadow-sm ring-2 ring-brass"
+                      ? "bg-white shadow-sm ring-2 ring-ink"
                       : "hover:bg-white/60"
                   }`}
                 >
                   <span
                     className={`absolute -left-0.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full font-mono-data text-[9px] ${
                       active
-                        ? "bg-brass text-marble"
+                        ? "bg-ink text-paper"
                         : "bg-charcoal/10 text-muted"
                     }`}
                   >

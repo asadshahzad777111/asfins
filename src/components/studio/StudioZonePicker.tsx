@@ -44,10 +44,10 @@ export function StudioZonePicker({ zones, activeZone, onSelect }: StudioZonePick
                     key={z.id}
                     type="button"
                     onClick={() => onSelect(z.id)}
-                    className={`px-2.5 py-1.5 font-mono-data text-[9px] uppercase tracking-wider transition-all ${
+                    className={`studio-chip px-2.5 py-1.5 font-mono-data text-[9px] uppercase tracking-wider transition-all ${
                       active
-                        ? "bg-brass text-ink shadow-sm"
-                        : "bg-base text-muted hover:bg-white hover:text-charcoal"
+                        ? "studio-chip--active"
+                        : "studio-chip--idle"
                     }`}
                   >
                     {z.label}

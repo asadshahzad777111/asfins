@@ -107,8 +107,11 @@ export const STUDIO_CABINET_TARGETS: StudioZoneTarget[] = [
   },
 ];
 
-/** Default Studio control for a fine-grained Advanced mapping slot. */
-export function defaultStudioZoneId(slotId: string): string {
+/**
+ * Optional merge target for a fine-grained Advanced mapping slot
+ * (used when admin clicks “Merge all cabinet parts…”).
+ */
+export function mergedStudioZoneId(slotId: string): string {
   if (
     slotId === "lower-cabinets" ||
     slotId.startsWith("lower-cabinet") ||
@@ -130,12 +133,31 @@ export function defaultStudioZoneId(slotId: string): string {
   return slotId;
 }
 
+/**
+ * Default Studio control for a tagged slot: keep the tagged identity
+ * (left/right stay separate) unless admin assigns the same Studio control.
+ */
+export function defaultStudioZoneId(slotId: string): string {
+  return slotId;
+}
+
 export function buildDefaultStudioTargets(
   assignments: Record<string, number[]>
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const slotId of Object.keys(assignments)) {
     out[slotId] = defaultStudioZoneId(slotId);
+  }
+  return out;
+}
+
+/** Explicit merge map for “Merge all cabinet parts into Lower / Upper / Island”. */
+export function buildMergedStudioTargets(
+  assignments: Record<string, number[]>
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const slotId of Object.keys(assignments)) {
+    out[slotId] = mergedStudioZoneId(slotId);
   }
   return out;
 }
