@@ -63,7 +63,7 @@ function rowToProduct(row, swatch) {
     id: swatch.id,
     name: row.name,
     pricePKR: row.pricePKR ?? 0,
-    image: row.thumbUrl ?? row.imageUrl,
+    image: row.imageUrl ?? row.thumbUrl,
     category: (row.materialCategory ?? "").toLowerCase().includes("marble")
       ? "marble"
       : "wood-laminate",

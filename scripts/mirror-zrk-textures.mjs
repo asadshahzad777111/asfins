@@ -1,8 +1,10 @@
 /**
  * Mirror ALL ZRK Strapi images → local webp (fast catalog loading).
- * Creates thumb (320px) + full (768px) for every zrk-group swatch.
+ * Creates thumb (1024px demirrored) + full (≤2048px, q=92) for every zrk-group swatch.
+ * Product cards use the FULL texture URL (not thumbs).
  *
  * Usage: npm run mirror-zrk
+ * Prefer scripts/remirror-zrk-hq.mjs to force-refresh from Strapi at HQ.
  */
 import sharp from "sharp";
 import { mkdir, writeFile, readFile, access } from "fs/promises";
@@ -48,14 +50,14 @@ async function mirrorOne(code, remoteUrl, force = false) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
 
-  // Full sheet stays book-matched for seamless studio tiling.
+  // Full sheet stays book-matched for seamless studio tiling (near-Strapi quality).
   await sharp(buf)
-    .resize(768, 768, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 84 })
+    .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 92 })
     .toFile(fullDisk);
 
   // Catalog thumb: crop away mirror seam when the Strapi sheet is book-matched.
-  await writeDemirroredThumb(buf, thumbDisk, 320);
+  await writeDemirroredThumb(buf, thumbDisk, 1024);
 
   return { code, thumbUrl, imageUrl, skipped: false };
 }
@@ -140,7 +142,7 @@ async function writeDemirroredThumb(input, outPath, size = 320) {
     pipeline = pipeline.extract({ left: 0, top: 0, width: cropW, height: cropH });
   }
 
-  await pipeline.resize(size, size, { fit: "cover" }).webp({ quality: 78 }).toFile(outPath);
+  await pipeline.resize(size, size, { fit: "cover" }).webp({ quality: 90 }).toFile(outPath);
   return axes;
 }
 
@@ -222,9 +224,9 @@ for (const p of productsData.products) {
   if (!p.id?.startsWith("zrk-")) continue;
   const code = p.productCode ?? p.id.replace("zrk-", "");
   const m = byCode.get(code);
-  if (m) p.image = m.thumbUrl;
-  else if (p.image?.startsWith("/catalog-textures/zrk/") && !p.image.includes("/thumbs/")) {
-    p.image = `/catalog-textures/zrk/thumbs/${code}.webp`;
+  if (m) p.image = m.imageUrl;
+  else if (p.image?.includes("/thumbs/")) {
+    p.image = `/catalog-textures/zrk/${code}.webp`;
   }
 }
 

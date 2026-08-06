@@ -113,13 +113,13 @@ export async function extractNaturalGrain(
 export async function writeDemirroredThumb(
   input: Buffer | string,
   outPath: string,
-  size = 320
+  size = 1024
 ): Promise<MirrorAxes> {
   const axes = await detectMirrorAxes(input);
   const cropped = await extractNaturalGrain(input, axes);
   await cropped
     .resize(size, size, { fit: "cover" })
-    .webp({ quality: 78 })
+    .webp({ quality: 90 })
     .toFile(outPath);
   return { leftRight: axes.leftRight, topBottom: axes.topBottom };
 }

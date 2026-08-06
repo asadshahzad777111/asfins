@@ -94,7 +94,9 @@ Without CORS, browsers block `crossOrigin="anonymous"` texture loads and the stu
 4. Local se images upload:
 
 ```bash
-npm run mirror-zrk
+npm run remirror-zrk-hq  # re-fetch Strapi originals → ≤2048 webp (q=92); product cards use FULL
+npm run mirror-zrk       # only missing sheets (skips cached)
+npm run upload-r2        # push public/catalog-textures → R2 + rewrite JSON URLs
 ```
 
 5. Baad mein custom domain: `cdn.asfins.com` → R2 bucket
@@ -127,7 +129,9 @@ npm run mirror-zrk
 npm run dev              # local test
 npm run seed-accessories # starter handles/hardware/sinks → data/products.json
 npm run scrape-zrk-mdf:import   # new ZRK products
-npm run mirror-zrk       # images local/CDN
+npm run remirror-zrk-hq  # force HQ re-mirror from zrkgroup Strapi (2048)
+npm run mirror-zrk       # images local/CDN (incremental)
+npm run upload-r2        # upload textures → R2 CDN
 npm run sync-zrk         # incremental ZRK sync
 npm run seed-mongo       # JSON → MongoDB `asfins` (alag DB — gear URI mat use karo)
 ```

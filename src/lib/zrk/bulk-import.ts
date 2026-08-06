@@ -137,7 +137,7 @@ export function zrkRowToProduct(row: ZrkBulkRow, swatch: CatalogSwatch): Product
     id: swatch.id,
     name: row.name,
     pricePKR: row.pricePKR ?? 0,
-    image: row.thumbUrl ?? row.imageUrl,
+    image: row.imageUrl ?? row.thumbUrl,
     category,
     description: swatch.description ?? `${row.name} — ZRK Group laminate.`,
     active: true,

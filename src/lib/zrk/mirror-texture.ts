@@ -35,7 +35,7 @@ export function localFullPath(code: string): string {
   return `/catalog-textures/zrk/${code}.webp`;
 }
 
-/** Download Strapi image → local thumb (320px) + full (768px) webp. Skips if both exist. */
+/** Download Strapi image → local thumb (1024px) + full (≤2048px) webp. Skips if both exist. */
 export async function mirrorZrkTexture(
   code: string,
   remoteUrl: string,
@@ -61,14 +61,14 @@ export async function mirrorZrkTexture(
   const buf = Buffer.from(await res.arrayBuffer());
 
   if (!hasBoth || opts?.force) {
-    // Full sheet stays book-matched for seamless studio tiling.
+    // Full sheet stays book-matched for seamless studio tiling (near-Strapi quality).
     await sharp(buf)
-      .resize(768, 768, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 84 })
+      .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 92 })
       .toFile(fullDisk);
 
     // Catalog thumb: crop away mirror seam when present.
-    await writeDemirroredThumb(buf, thumbDisk, 320);
+    await writeDemirroredThumb(buf, thumbDisk, 1024);
   }
 
   return { code, thumbUrl, imageUrl, remoteUrl };

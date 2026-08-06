@@ -67,47 +67,45 @@ function ProductCard({ p }: { p: Product }) {
   const catalogLabel = isSheetCategory(p.category)
     ? productCatalogLabel(p)
     : p.brandName;
+  const series = (p.materialCategory || "").trim();
+  const finish = (p.surfaceFinish || "").trim();
   const code = (p.productCode || "").trim();
+  const overlayLine = [series || catalogLabel, finish]
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .join(" · ");
 
   return (
     <Link
       href={`/products/${p.id}`}
       className="group flex flex-col border border-divider bg-paper transition-colors hover:border-ink/30"
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-base">
+      <div className="relative aspect-square overflow-hidden bg-base">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={p.image}
           alt={code ? `${code} — ${p.name}` : p.name}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
         />
-        {code && (
-          <div className="absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] border border-ink/15 bg-paper/95 px-2.5 py-1.5 shadow-sm backdrop-blur-sm sm:left-3 sm:top-3 sm:px-3 sm:py-2">
-            <p className="font-mono-data text-[9px] uppercase tracking-[0.16em] text-muted">
-              {t("productCode")}
+        {/* ZRK-style hover overlay — always visible on touch (no hover) */}
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-0 bg-ink/75 px-3 py-3 text-paper transition-transform duration-300 ease-out [@media(hover:hover)]:translate-y-full [@media(hover:hover)]:group-hover:translate-y-0 [@media(hover:hover)]:group-focus-visible:translate-y-0"
+        >
+          <p className="font-display text-sm leading-snug sm:text-base">{p.name}</p>
+          {overlayLine && (
+            <p className="mt-1 font-mono-data text-[10px] uppercase tracking-[0.14em] text-paper/75 sm:text-[11px]">
+              {overlayLine}
             </p>
-            <p className="font-mono-data text-base font-medium leading-none tracking-wide text-ink sm:text-lg">
-              {code}
-            </p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
-        {catalogLabel && (
-          <p className="font-mono-data text-[9px] uppercase tracking-[0.16em] text-brass sm:text-[10px] sm:tracking-[0.18em]">
-            {catalogLabel}
-          </p>
-        )}
         {code && (
-          <p className="font-mono-data text-sm tracking-wide text-ink sm:text-base">
-            <span className="text-muted">{t("codeShort")}: </span>
+          <p className="font-mono-data text-lg font-semibold tracking-wide text-ink sm:text-xl">
             {code}
           </p>
         )}
-        <h2 className="font-display text-base leading-snug text-charcoal sm:text-lg">
-          {p.name}
-        </h2>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <p className="font-mono-data text-sm text-ink">
             {rate != null ? formatPKR(rate) : t("ratesComingSoon")}
             {rate != null && (

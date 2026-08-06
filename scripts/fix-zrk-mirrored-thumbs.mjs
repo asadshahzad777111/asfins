@@ -85,7 +85,7 @@ async function detectMirrorAxes(input) {
   };
 }
 
-async function writeDemirroredThumb(input, outPath, size = 320) {
+async function writeDemirroredThumb(input, outPath, size = 1024) {
   const axes = await detectMirrorAxes(input);
   const meta = await sharp(input).metadata();
   const w = meta.width ?? 0;
@@ -98,7 +98,7 @@ async function writeDemirroredThumb(input, outPath, size = 320) {
     pipeline = pipeline.extract({ left: 0, top: 0, width: cropW, height: cropH });
   }
 
-  await pipeline.resize(size, size, { fit: "cover" }).webp({ quality: 78 }).toFile(outPath);
+  await pipeline.resize(size, size, { fit: "cover" }).webp({ quality: 90 }).toFile(outPath);
   return axes;
 }
 
@@ -114,7 +114,7 @@ for (const file of files) {
   const fullPath = path.join(FULL_DIR, file);
   const thumbPath = path.join(THUMB_DIR, file);
   try {
-    const axes = await writeDemirroredThumb(fullPath, thumbPath, 320);
+    const axes = await writeDemirroredThumb(fullPath, thumbPath, 1024);
     if (axes.leftRight || axes.topBottom) {
       fixed++;
       if (samples.length < 30) {

@@ -80,35 +80,44 @@ export function HomePageClient({ featured }: HomePageClientProps) {
                 substrate: p.substrate,
                 description: p.description,
               });
+              const code = (p.productCode || "").trim();
+              const series = (p.materialCategory || "").trim();
+              const finish = (p.surfaceFinish || "").trim();
+              const overlayLine = [series, finish]
+                .filter(Boolean)
+                .filter((v, i, a) => a.indexOf(v) === i)
+                .join(" · ");
               return (
                 <Link
                   key={p.id}
                   href={`/products/${p.id}`}
-                  className="group border border-divider bg-paper transition-colors hover:border-ink/30"
+                  className="group flex flex-col border border-divider bg-paper transition-colors hover:border-ink/30"
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-base">
+                  <div className="relative aspect-square overflow-hidden bg-base">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={p.image}
-                      alt={p.productCode ? `${p.productCode} — ${p.name}` : p.name}
+                      alt={code ? `${code} — ${p.name}` : p.name}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     />
-                    {p.productCode && (
-                      <div className="absolute left-2 top-2 border border-ink/15 bg-paper/95 px-2.5 py-1.5 backdrop-blur-sm">
-                        <p className="font-mono-data text-base tracking-wide text-ink">
-                          {p.productCode}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-0 bg-ink/75 px-3 py-3 text-paper transition-transform duration-300 ease-out [@media(hover:hover)]:translate-y-full [@media(hover:hover)]:group-hover:translate-y-0 [@media(hover:hover)]:group-focus-visible:translate-y-0">
+                      <p className="font-display text-sm leading-snug sm:text-base">
+                        {p.name}
+                      </p>
+                      {overlayLine && (
+                        <p className="mt-1 font-mono-data text-[10px] uppercase tracking-[0.14em] text-paper/75 sm:text-[11px]">
+                          {overlayLine}
                         </p>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                  <div className="p-4">
-                    {p.productCode && (
-                      <p className="font-mono-data text-sm text-ink">
-                        {t("codeShort")}: {p.productCode}
+                  <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
+                    {code && (
+                      <p className="font-mono-data text-lg font-semibold tracking-wide text-ink sm:text-xl">
+                        {code}
                       </p>
                     )}
-                    <h3 className="font-display mt-1 text-lg text-charcoal">{p.name}</h3>
-                    <p className="mt-2 font-mono-data text-sm text-ink">
+                    <p className="mt-1 font-mono-data text-sm text-ink">
                       {rate != null ? formatPKR(rate) : t("ratesComingSoon")}
                       {rate != null && (
                         <span className="ml-1 text-[10px] uppercase text-muted">
