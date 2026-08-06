@@ -1,32 +1,33 @@
 import type { Metadata } from "next";
-import { Syne, DM_Sans } from "next/font/google";
+import { Libre_Caslon_Text, Hanken_Grotesk } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import { SiteChromeGate } from "@/components/SiteChromeGate";
 import { SITE } from "@/lib/site";
 import "./globals.css";
+import "./stitch-atelier.css";
 
-const syne = Syne({
-  variable: "--font-syne",
+const libreCaslon = Libre_Caslon_Text({
+  variable: "--font-libre-caslon",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "700"],
   display: "swap",
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+const hanken = Hanken_Grotesk({
+  variable: "--font-hanken",
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
 const SITE_DESCRIPTION =
-  "ASFins — laminate sheets and kitchen accessories with clear PKR rates. Cart, COD / WhatsApp orders in Lahore.";
+  "ASFins — premium architectural materials for Lahore. Laminate sheets, hardware, and surfaces with clear PKR rates. Cart, COD / WhatsApp orders.";
 
 const OG_IMAGE = {
-  url: "/scenes/kitchen-modern/base.jpg",
+  url: "/marketing/hero-kitchen.webp",
   width: 1600,
   height: 1000,
-  alt: "ASFins — colour studio kitchen preview",
+  alt: "ASFins — premium architectural interiors",
 };
 
 export const metadata: Metadata = {
@@ -39,8 +40,8 @@ export const metadata: Metadata = {
   keywords: [
     "interior design",
     "laminate",
-    "kitchen visualizer",
-    "wood colour",
+    "architectural materials",
+    "kitchen",
     "Lahore",
     "Pakistan",
     "ASFins",
@@ -71,7 +72,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${syne.variable} ${dmSans.variable} h-full`}
+      className={`${libreCaslon.variable} ${hanken.variable} h-full`}
     >
       <body className="flex min-h-full flex-col antialiased">
         <Providers>

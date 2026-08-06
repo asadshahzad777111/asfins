@@ -2,16 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { parseSeriesFromDescription, resolveSheetRate, formatPKR } from "@/lib/rates";
-import { StockRateBadge } from "@/components/StockRateBadge";
 import { useCart } from "@/lib/cart/CartContext";
 import {
   isSheetCategory,
   unitLabelForCategory,
 } from "@/lib/products/categories";
 import { productCatalogLabel } from "@/lib/products/shop-catalogs";
+import { getStockStatus, stockStatusLabelKey } from "@/lib/stock";
 import { whatsappUrl } from "@/lib/share";
 import type { Product } from "@/lib/products/types";
 
@@ -51,6 +50,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const code = (product.productCode || "").trim();
   const catalogLabel = sheet ? productCatalogLabel(product) : product.brandName;
   const unitKey = unitLabelForCategory(product.category);
+  const stock = getStockStatus(product.stock, product.lowStockAt);
 
   const substrateLabel =
     product.substrate === "mdf"
@@ -100,142 +100,158 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     .join("\n");
 
   return (
-    <div className="bg-marble">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
-        <Link href="/products" className="font-mono-data text-xs text-brass hover:underline">
-          {t("allProducts")}
-        </Link>
-
-        <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-16">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="relative overflow-hidden border border-divider bg-white"
-          >
+    <div className="bg-paper pb-mobile-nav">
+      <div className="mx-auto w-full max-w-[1440px] md:px-16 md:pb-28">
+        <div className="grid min-h-[70vh] grid-cols-1 md:grid-cols-12 md:gap-6">
+          {/* Image canvas */}
+          <div className="relative overflow-hidden border-b border-stone bg-[#f3f3f3] md:col-span-8 md:min-h-[80vh] md:border-b-0 md:border-r">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={product.image}
               alt={code ? `${code} — ${product.name}` : product.name}
-              className="aspect-square w-full object-cover"
+              className="h-full min-h-[50vh] w-full object-cover md:absolute md:inset-0 md:min-h-0"
             />
-            {code && (
-              <div className="absolute left-3 top-3 z-10 border border-ink/15 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur-sm sm:left-4 sm:top-4 sm:px-4 sm:py-3">
-                <p className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-muted">
-                  {t("productCode")}
-                </p>
-                <p className="font-mono-data text-2xl leading-none tracking-wide text-ink sm:text-3xl">
-                  {code}
-                </p>
-              </div>
-            )}
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            {catalogLabel && (
-              <p className="font-mono-data text-xs uppercase tracking-[0.3em] text-brass">
-                {catalogLabel}
-              </p>
-            )}
-
-            {code && (
-              <p className="mt-3 font-mono-data text-3xl tracking-wide text-ink sm:text-4xl">
-                <span className="mr-2 text-sm uppercase tracking-[0.14em] text-muted">
-                  {t("codeShort")}
+            <div className="absolute left-5 top-5 z-10 flex flex-wrap gap-2 md:left-8 md:top-8">
+              {catalogLabel && (
+                <span className="label-caps border border-stone bg-white/80 px-3 py-1 text-ink backdrop-blur-sm">
+                  {catalogLabel}
                 </span>
-                {code}
-              </p>
+              )}
+              <span className="label-caps border border-brass bg-white/80 px-3 py-1 text-brass backdrop-blur-sm">
+                {t(stockStatusLabelKey(stock))}
+              </span>
+            </div>
+          </div>
+
+          {/* Details pane */}
+          <div className="flex flex-col justify-center px-5 py-10 md:col-span-4 md:p-8">
+            <Link
+              href="/products"
+              className="label-caps mb-6 text-muted transition-colors hover:text-ink"
+            >
+              ← {t("allProducts")}
+            </Link>
+
+            {series && (
+              <p className="label-caps text-muted">{series}</p>
             )}
 
-            <h1 className="font-display mt-2 text-2xl text-charcoal sm:text-3xl">
-              {product.name}
+            <h1 className="font-display mt-2 text-[40px] leading-tight tracking-tight text-ink md:text-[56px]">
+              {code || product.name}
             </h1>
 
-            <div className="mt-5">
-              <StockRateBadge
-                rate={displayRate}
-                stock={product.stock}
-                lowStockAt={product.lowStockAt}
-                unitKey={unitKey}
-              />
-            </div>
-
-            {product.description && (
-              <p className="mt-6 leading-relaxed text-muted">{product.description}</p>
+            {code && (
+              <p className="mt-2 font-display text-xl text-charcoal">{product.name}</p>
             )}
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handleAdd}
-                className="bg-ink px-6 py-3 text-sm text-paper transition-opacity hover:opacity-85"
-              >
+            {product.description && (
+              <p className="mt-4 text-lg leading-relaxed text-[#4c4546]">
+                {product.description}
+              </p>
+            )}
+
+            <div className="mt-8 flex items-end justify-between border-y border-stone py-6">
+              <div>
+                <span className="label-caps mb-1 block text-muted">
+                  {t("lahoreDepotRate")}
+                </span>
+                <span className="font-display text-[28px] text-ink md:text-[32px]">
+                  {displayRate != null && displayRate > 0
+                    ? formatPKR(displayRate)
+                    : t("ratesComingSoon")}
+                  {displayRate != null && displayRate > 0 && (
+                    <span className="ml-2 text-base text-muted">
+                      / {t(unitKey)}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="label-caps mb-1 block text-muted">
+                  {t("availability")}
+                </span>
+                <span className="text-lg font-semibold text-ink">
+                  {typeof product.stock === "number"
+                    ? product.stock
+                    : t(stockStatusLabelKey(stock))}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col gap-4">
+              <button type="button" onClick={handleAdd} className="btn-atelier w-full">
                 {added ? t("addedToCart") : t("addToCart")}
               </button>
-              <Link
-                href="/cart"
-                className="border border-ink/20 px-6 py-3 text-sm text-ink hover:border-ink/40"
-              >
-                {t("viewCart")}
-              </Link>
               <a
                 href={whatsappUrl(waMsg)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="border border-ink/20 px-6 py-3 text-sm text-ink hover:border-ink/40"
+                className="inline-flex w-full items-center justify-center gap-2 border border-brass py-4 label-caps text-brass transition-colors hover:bg-brass hover:text-white"
               >
                 {t("orderOnWhatsApp")}
               </a>
+              <Link
+                href="/cart"
+                className="btn-atelier-outline w-full text-center"
+              >
+                {t("viewCart")}
+              </Link>
               {product.technicalSheetUrl && (
                 <a
                   href={product.technicalSheetUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-technical"
+                  className="label-caps text-center text-muted hover:text-ink"
                 >
                   {t("technicalSheet")} ↓
                 </a>
               )}
             </div>
 
-            {specs.length > 0 && (
-              <div className="mt-10">
-                <h2 className="font-display text-lg text-charcoal">{t("productSpecs")}</h2>
-                <table className="spec-table mt-4">
-                  <tbody>
-                    {specs.map((spec) => (
-                      <tr key={spec.labelKey + (spec.value ?? "")}>
-                        <th>
-                          {spec.labelKey === "substrateMdf" ||
-                          spec.labelKey === "substrateChipboard"
-                            ? t("substrate")
-                            : t(spec.labelKey)}
-                        </th>
-                        <td
-                          className={
-                            spec.labelKey === "productCode"
-                              ? "font-mono-data text-base tracking-wide text-ink"
-                              : undefined
-                          }
-                        >
-                          {spec.value}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
             {!sheet && (
               <p className="mt-8 text-sm text-muted">{t("accessoryOrderHint")}</p>
             )}
-          </motion.div>
+          </div>
         </div>
+
+        {/* Specs */}
+        {specs.length > 0 && (
+          <section className="mt-16 px-5 md:mt-28 md:px-0">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+              <div className="border-t border-stone pt-4 md:col-span-4">
+                <h2 className="font-display text-[28px] text-ink md:text-[32px]">
+                  {t("productSpecs").replace(" ", "\n").includes("\n")
+                    ? t("productSpecs")
+                    : t("productSpecs")}
+                </h2>
+              </div>
+              <ul className="border-t border-stone md:col-span-8">
+                {specs.map((spec) => (
+                  <li
+                    key={spec.labelKey + (spec.value ?? "")}
+                    className="flex items-center justify-between gap-4 border-b border-stone py-6"
+                  >
+                    <span className="text-lg text-muted">
+                      {spec.labelKey === "substrateMdf" ||
+                      spec.labelKey === "substrateChipboard"
+                        ? t("substrate")
+                        : t(spec.labelKey)}
+                    </span>
+                    <span
+                      className={`text-right text-lg text-ink ${
+                        spec.labelKey === "productCode"
+                          ? "font-mono-data tracking-wide"
+                          : ""
+                      }`}
+                    >
+                      {spec.value}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

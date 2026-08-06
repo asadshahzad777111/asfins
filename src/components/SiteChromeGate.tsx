@@ -1,8 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Footer, Header } from "@/components/SiteChrome";
-import { StickyAtelierCTA } from "@/components/StickyAtelierCTA";
+import { Footer, Header, MobileBottomNav } from "@/components/SiteChrome";
 import { StickyWhatsAppButton } from "@/components/StickyWhatsAppButton";
 
 export function SiteChromeGate({ children }: { children: React.ReactNode }) {
@@ -12,12 +11,10 @@ export function SiteChromeGate({ children }: { children: React.ReactNode }) {
     pathname === "/studio" ||
     pathname.startsWith("/studio/") ||
     pathname.startsWith("/configurator");
-  const showStickyShop =
-    pathname === "/" ||
-    pathname.startsWith("/about") ||
-    pathname.startsWith("/contact");
+  const isCheckout = pathname.startsWith("/cart");
   const showWhatsApp =
     !isAdmin &&
+    !isCheckout &&
     !pathname.startsWith("/studio/") &&
     !pathname.startsWith("/configurator");
 
@@ -29,12 +26,15 @@ export function SiteChromeGate({ children }: { children: React.ReactNode }) {
     <>
       <Header />
       <main className="flex-1">{children}</main>
-      <Footer />
-      {showStickyShop && <StickyAtelierCTA />}
+      {!isCheckout && <Footer />}
+      {isCheckout && (
+        <footer className="border-t border-stone bg-[#f3f3f3] px-5 py-8 text-center">
+          <p className="label-caps text-muted">© ASFins®</p>
+        </footer>
+      )}
+      <MobileBottomNav />
       {showWhatsApp && (
-        <StickyWhatsAppButton
-          className={showStickyShop ? "bottom-20 sm:bottom-6" : ""}
-        />
+        <StickyWhatsAppButton className="bottom-20 md:bottom-6" />
       )}
     </>
   );

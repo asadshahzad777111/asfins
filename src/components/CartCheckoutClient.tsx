@@ -63,29 +63,24 @@ export function CartCheckoutClient() {
       .join("\n");
 
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center sm:px-6">
-        <p className="font-mono-data text-xs uppercase tracking-[0.3em] text-brass">
-          {t("orderSuccessEyebrow")}
-        </p>
-        <h1 className="font-display mt-4 text-3xl text-charcoal">
+      <div className="mx-auto max-w-lg px-5 py-20 text-center pb-mobile-nav">
+        <p className="label-caps text-brass">{t("orderSuccessEyebrow")}</p>
+        <h1 className="font-display mt-4 text-[40px] text-ink">
           {t("orderSuccessTitle")}
         </h1>
         <p className="mt-3 text-muted">
           {t("orderSuccessBody", { order: done.orderNumber })}
         </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <a
             href={whatsappUrl(waMsg)}
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-ink px-6 py-3 text-sm text-paper"
+            className="btn-atelier"
           >
             {t("chatOnWhatsApp")}
           </a>
-          <Link
-            href="/products"
-            className="border border-ink/20 px-6 py-3 text-sm text-ink"
-          >
+          <Link href="/products" className="btn-atelier-outline">
             {t("continueShopping")}
           </Link>
         </div>
@@ -95,13 +90,10 @@ export function CartCheckoutClient() {
 
   if (items.length === 0) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center sm:px-6">
-        <h1 className="font-display text-3xl text-charcoal">{t("cartTitle")}</h1>
+      <div className="mx-auto max-w-lg px-5 py-20 text-center pb-mobile-nav">
+        <h1 className="font-display text-[40px] text-ink">{t("cartTitle")}</h1>
         <p className="mt-4 text-muted">{t("cartEmpty")}</p>
-        <Link
-          href="/products"
-          className="mt-8 inline-block bg-ink px-6 py-3 text-sm text-paper"
-        >
+        <Link href="/products" className="btn-atelier mt-10 inline-flex">
           {t("browseShop")}
         </Link>
       </div>
@@ -109,37 +101,55 @@ export function CartCheckoutClient() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-      <h1 className="font-display text-3xl text-charcoal sm:text-4xl">
-        {t("cartTitle")}
-      </h1>
-      <p className="mt-2 text-muted">{t("cartSubtitle")}</p>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-16 px-5 py-16 pb-mobile-nav md:px-0 md:py-20">
+      <div className="text-center">
+        <h1 className="font-display text-[40px] tracking-tight text-ink md:text-[64px]">
+          {t("checkoutTitle")}
+        </h1>
+        <p className="mx-auto mt-4 max-w-md text-base text-muted">
+          {t("cartSubtitle")}
+        </p>
+      </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-        <ul className="space-y-4">
+      {/* Order summary */}
+      <section className="border border-stone bg-paper">
+        <div className="flex items-center justify-between border-b border-stone p-6">
+          <h2 className="font-display text-[28px] text-ink">{t("orderSummary")}</h2>
+          <span className="label-caps text-muted">
+            {items.length} {items.length === 1 ? "Item" : "Items"}
+          </span>
+        </div>
+        <ul className="divide-y divide-stone">
           {items.map((item) => (
             <li
               key={item.productId}
-              className="flex gap-4 border border-divider bg-paper p-3"
+              className="flex flex-col items-start gap-6 p-6 sm:flex-row sm:items-center"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.image || "/products/placeholder.svg"}
                 alt=""
-                className="h-20 w-20 shrink-0 object-cover"
+                className="h-24 w-24 shrink-0 border border-stone object-cover"
               />
-              <div className="min-w-0 flex-1">
-                <Link
-                  href={`/products/${item.productId}`}
-                  className="font-display text-base text-charcoal hover:text-brass"
-                >
-                  {item.name}
-                </Link>
-                <p className="mt-1 font-mono-data text-sm text-ink">
-                  {formatPKR(item.pricePKR)}
-                </p>
-                <div className="mt-2 flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-xs text-muted">
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <div className="flex w-full items-start justify-between gap-4">
+                  <div>
+                    <Link
+                      href={`/products/${item.productId}`}
+                      className="text-lg uppercase text-ink hover:text-brass"
+                    >
+                      {item.name}
+                    </Link>
+                    <p className="label-caps mt-1 text-muted">
+                      {formatPKR(item.pricePKR)}
+                    </p>
+                  </div>
+                  <span className="text-lg text-ink">
+                    {formatPKR(item.pricePKR * item.qty)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm text-muted">
                     {t("qty")}
                     <input
                       type="number"
@@ -149,75 +159,96 @@ export function CartCheckoutClient() {
                       onChange={(e) =>
                         setQty(item.productId, Number(e.target.value) || 1)
                       }
-                      className="w-16 border border-divider bg-base px-2 py-1 text-ink"
+                      className="w-16 border border-stone bg-base px-2 py-1 text-ink"
                     />
                   </label>
                   <button
                     type="button"
                     onClick={() => removeItem(item.productId)}
-                    className="text-xs text-red-700"
+                    className="label-caps text-[10px] text-red-700"
                   >
                     {t("remove")}
                   </button>
                 </div>
               </div>
-              <p className="shrink-0 font-mono-data text-sm text-ink">
-                {formatPKR(item.pricePKR * item.qty)}
-              </p>
             </li>
           ))}
         </ul>
+        <div className="flex flex-col gap-2 bg-[#f3f3f3] p-6">
+          <div className="flex justify-between text-base text-muted">
+            <span>{t("cartTotal")}</span>
+            <span>{formatPKR(totalPKR)}</span>
+          </div>
+          <div className="flex justify-between text-base text-muted">
+            <span>{t("shippingTbd")}</span>
+            <span>TBD</span>
+          </div>
+          <div className="mt-4 flex justify-between border-t border-stone pt-4 font-display text-[28px] text-ink">
+            <span>{t("totalEstimated")}</span>
+            <span>{formatPKR(totalPKR)}</span>
+          </div>
+        </div>
+      </section>
 
-        <form
-          onSubmit={placeOrder}
-          className="h-fit space-y-4 border border-divider bg-paper p-6"
-        >
-          <h2 className="font-display text-xl text-charcoal">
-            {t("checkoutTitle")}
-          </h2>
-          <p className="text-sm text-muted">{t("checkoutCodNote")}</p>
-
-          <label className="block">
-            <span className="text-sm font-medium">{t("quoteFormName")}</span>
+      {/* Delivery form */}
+      <section>
+        <h2 className="mb-8 font-display text-[28px] text-ink">
+          {t("deliveryDetails")}
+        </h2>
+        <form onSubmit={placeOrder} className="flex flex-col gap-8">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+            <label className="flex flex-col gap-2">
+              <span className="label-caps text-ink">{t("quoteFormName")} *</span>
+              <input
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("quoteFormName")}
+                className="input-atelier"
+              />
+            </label>
+            <label className="flex flex-col gap-2">
+              <span className="label-caps text-ink">{t("quoteFormPhone")} *</span>
+              <input
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="03XX-XXXXXXX"
+                className="input-atelier"
+              />
+            </label>
+          </div>
+          <label className="flex flex-col gap-2">
+            <span className="label-caps text-ink">{t("checkoutCity")} *</span>
             <input
               required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full border border-divider bg-base px-3 py-2.5"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">{t("quoteFormPhone")}</span>
-            <input
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="mt-1 w-full border border-divider bg-base px-3 py-2.5"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">{t("checkoutCity")}</span>
-            <input
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="mt-1 w-full border border-divider bg-base px-3 py-2.5"
+              placeholder="Lahore, Karachi, Islamabad…"
+              className="input-atelier"
             />
           </label>
-          <label className="block">
-            <span className="text-sm font-medium">{t("quoteFormMessage")}</span>
+          <label className="flex flex-col gap-2">
+            <span className="label-caps text-ink">
+              {t("quoteFormMessage")} ({t("optional")})
+            </span>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}
-              className="mt-1 w-full border border-divider bg-base px-3 py-2.5"
+              className="w-full resize-none border border-stone bg-transparent p-4 text-base text-ink outline-none focus:border-ink"
+              placeholder={t("orderNotePlaceholder")}
             />
           </label>
 
-          <div className="flex items-center justify-between border-t border-divider pt-4">
-            <span className="text-sm text-muted">{t("cartTotal")}</span>
-            <span className="font-mono-data text-lg text-ink">
-              {formatPKR(totalPKR)}
+          <div className="mt-2 flex items-start gap-4 border border-stone bg-base p-6">
+            <span className="mt-0.5 text-ink" aria-hidden>
+              ✓
             </span>
+            <div>
+              <h4 className="label-caps mb-2 text-ink">{t("paymentMethod")}</h4>
+              <p className="text-base text-muted">{t("checkoutCodNote")}</p>
+            </div>
           </div>
 
           {error && (
@@ -229,12 +260,12 @@ export function CartCheckoutClient() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-ink py-3 text-sm text-paper disabled:opacity-50"
+            className="btn-atelier w-full py-6 disabled:opacity-50"
           >
             {loading ? t("orderPlacing") : t("placeOrder")}
           </button>
         </form>
-      </div>
+      </section>
     </div>
   );
 }

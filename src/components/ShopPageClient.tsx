@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { formatPKR, resolveSheetRate } from "@/lib/rates";
@@ -31,6 +32,18 @@ interface ShopPageClientProps {
 }
 
 const ease = [0.22, 1, 0.36, 1] as const;
+
+function isShopFilterId(v: string | null): v is ShopFilterId {
+  return (
+    v === "all" ||
+    v === "sheets" ||
+    v === "handles" ||
+    v === "hardware" ||
+    v === "organizers" ||
+    v === "sinks" ||
+    v === "accessories"
+  );
+}
 
 function matchesProductQuery(p: Product, q: string): boolean {
   if (!q) return true;
@@ -78,22 +91,19 @@ function ProductCard({ p }: { p: Product }) {
   return (
     <Link
       href={`/products/${p.id}`}
-      className="group flex flex-col border border-divider bg-paper transition-colors hover:border-ink/30"
+      className="group flex flex-col border border-stone bg-base transition-colors hover:border-ink"
     >
-      <div className="relative aspect-square overflow-hidden bg-base">
+      <div className="relative aspect-square overflow-hidden bg-paper">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={p.image}
           alt={code ? `${code} — ${p.name}` : p.name}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
         />
-        {/* ZRK-style hover overlay — always visible on touch (no hover) */}
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-0 bg-ink/75 px-3 py-3 text-paper transition-transform duration-300 ease-out [@media(hover:hover)]:translate-y-full [@media(hover:hover)]:group-hover:translate-y-0 [@media(hover:hover)]:group-focus-visible:translate-y-0"
-        >
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-0 bg-ink/75 px-3 py-3 text-white transition-transform duration-300 ease-out [@media(hover:hover)]:translate-y-full [@media(hover:hover)]:group-hover:translate-y-0 [@media(hover:hover)]:group-focus-visible:translate-y-0">
           <p className="font-display text-sm leading-snug sm:text-base">{p.name}</p>
           {overlayLine && (
-            <p className="mt-1 font-mono-data text-[10px] uppercase tracking-[0.14em] text-paper/75 sm:text-[11px]">
+            <p className="label-caps mt-1 text-[10px] text-white/75 sm:text-[11px]">
               {overlayLine}
             </p>
           )}
@@ -114,7 +124,7 @@ function ProductCard({ p }: { p: Product }) {
               </span>
             )}
           </p>
-          <p className="font-mono-data text-[10px] uppercase tracking-wider text-muted">
+          <p className="label-caps text-[10px] text-muted">
             {t(stockStatusLabelKey(stock))}
             {typeof p.stock === "number" ? ` · ${p.stock}` : ""}
           </p>
@@ -126,9 +136,18 @@ function ProductCard({ p }: { p: Product }) {
 
 export function ShopPageClient({ products }: ShopPageClientProps) {
   const { t } = useLanguage();
+  const searchParams = useSearchParams();
   const [filter, setFilter] = useState<ShopFilterId>("all");
   const [query, setQuery] = useState("");
   const [openCatalogId, setOpenCatalogId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const f = searchParams.get("filter");
+    if (isShopFilterId(f)) {
+      setFilter(f);
+      setOpenCatalogId(null);
+    }
+  }, [searchParams]);
 
   const typeFiltered = useMemo(
     () => products.filter((p) => productMatchesShopFilter(p.category, filter)),
@@ -159,10 +178,8 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
     if (openCatalogId && !searching) {
       list = list.filter((p) => productInCatalog(p, openCatalogId));
     } else if (showCatalogFolders) {
-      // folders view — no flat list
       list = [];
     } else if (filter === "all" && !searching && !accessoryOnly) {
-      // when somehow no folders, fall through
       list = typeFiltered;
     }
 
@@ -178,7 +195,6 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
     q,
   ]);
 
-  /** Search across all type-filtered products */
   const searchResults = useMemo(() => {
     if (!searching) return [];
     return typeFiltered
@@ -204,13 +220,11 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
   }
 
   return (
-    <div className="bg-marble">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <div className="bg-paper pb-mobile-nav">
+      <div className="mx-auto max-w-[1440px] px-5 py-12 md:px-16 md:py-20">
         <Reveal>
-          <p className="font-mono-data text-xs uppercase tracking-[0.3em] text-brass">
-            {t("shopEyebrow")}
-          </p>
-          <h1 className="font-display mt-3 text-4xl tracking-tight text-charcoal sm:text-5xl">
+          <p className="label-caps text-brass">{t("shopEyebrow")}</p>
+          <h1 className="font-display mt-3 text-[40px] tracking-tight text-ink md:text-[56px]">
             {t("productsTitle")}
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted">
@@ -218,7 +232,7 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
           </p>
         </Reveal>
 
-        <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
             {SHOP_FILTERS.map((f) => {
               const active = filter === f.id;
@@ -227,10 +241,10 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
                   key={f.id}
                   type="button"
                   onClick={() => setTypeFilter(f.id)}
-                  className={`border px-3 py-1.5 font-mono-data text-[11px] uppercase tracking-wider transition-colors ${
+                  className={`label-caps border px-3 py-2 text-[11px] transition-colors ${
                     active
-                      ? "border-ink bg-ink text-paper"
-                      : "border-divider bg-paper text-muted hover:border-ink/40 hover:text-ink"
+                      ? "border-ink bg-ink text-white"
+                      : "border-stone bg-base text-muted hover:border-ink hover:text-ink"
                   }`}
                 >
                   {t(f.labelKey)}
@@ -244,7 +258,7 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("productsFilter")}
-              className="w-full border border-divider bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-muted"
+              className="w-full border border-stone bg-base px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-ink focus:outline-none"
             />
           </label>
         </div>
@@ -257,9 +271,9 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.35, ease }}
-              className="mt-10"
+              className="mt-12"
             >
-              <p className="mb-4 font-mono-data text-[11px] uppercase tracking-[0.18em] text-muted">
+              <p className="label-caps mb-4 text-muted">
                 {t("chooseCatalogFolder")}
               </p>
               <BrandCatalogFolders
@@ -276,8 +290,8 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
 
               {filter === "all" &&
                 products.some((p) => !isSheetCategory(p.category)) && (
-                  <div className="mt-10">
-                    <p className="mb-4 font-mono-data text-[11px] uppercase tracking-[0.18em] text-muted">
+                  <div className="mt-12">
+                    <p className="label-caps mb-4 text-muted">
                       {t("filterAccessories")}
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -294,7 +308,7 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
                           key={id}
                           type="button"
                           onClick={() => setTypeFilter(id)}
-                          className="border border-divider bg-paper px-4 py-2 font-mono-data text-[11px] uppercase tracking-wider text-ink hover:border-ink"
+                          className="label-caps border border-stone bg-base px-4 py-2 text-[11px] text-ink hover:border-ink"
                         >
                           {t(
                             id === "handles"
@@ -320,40 +334,41 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.35, ease }}
-              className="mt-10"
+              className="mt-12"
             >
-              {(openCatalogId || (!accessoryOnly && !searching && filter === "sheets")) &&
+              {(openCatalogId ||
+                (!accessoryOnly && !searching && filter === "sheets")) &&
                 openFolder && (
                   <div className="mb-6 flex flex-wrap items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setOpenCatalogId(null)}
-                      className="font-mono-data text-xs text-brass hover:underline"
+                      className="label-caps text-brass hover:underline"
                     >
                       {t("allCatalogFolders")}
                     </button>
                     <span className="text-muted">/</span>
-                    <h2 className="font-display text-2xl text-charcoal">
+                    <h2 className="font-display text-2xl text-ink">
                       {openFolder.label}
                     </h2>
-                    <span className="font-mono-data text-[10px] uppercase tracking-wider text-muted">
+                    <span className="label-caps text-[10px] text-muted">
                       {t("folderSheetCount", { count: openFolder.count })}
                     </span>
                   </div>
                 )}
 
               {searching && (
-                <p className="mb-4 font-mono-data text-[11px] uppercase tracking-wider text-muted">
+                <p className="label-caps mb-4 text-muted">
                   {t("searchResultsCount", { count: gridProducts.length })}
                 </p>
               )}
 
               {gridProducts.length === 0 ? (
-                <p className="border border-divider bg-paper p-8 text-center text-muted">
+                <p className="border border-stone bg-base p-8 text-center text-muted">
                   {t("productsNoMatch")}
                 </p>
               ) : (
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {gridProducts.map((p) => (
                     <ProductCard key={p.id} p={p} />
                   ))}

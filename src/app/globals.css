@@ -1,20 +1,21 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Locomotive-inspired monochrome — photography supplies colour */
+  /* Architectural Atelier — Stitch: ink / paper / stone / brass */
   --color-ink: #000000;
-  --color-paper: #ffffff;
+  --color-paper: #f9f9f9;
   --color-base: #ffffff;
-  --color-walnut: #000000;
-  --color-brass: #000000;
-  --color-marble: #ffffff;
-  --color-charcoal: #000000;
-  --color-muted: #6a6a6a;
-  --color-ember: #000000;
-  --color-divider: rgba(0, 0, 0, 0.12);
-  --font-display: var(--font-syne);
-  --font-body: var(--font-dm-sans);
-  --font-mono: var(--font-dm-sans);
+  --color-walnut: #1a1c1c;
+  --color-brass: #b5a264;
+  --color-marble: #f9f9f9;
+  --color-charcoal: #1a1c1c;
+  --color-muted: #605e59;
+  --color-stone: #d1cec7;
+  --color-ember: #b5a264;
+  --color-divider: #d1cec7;
+  --font-display: var(--font-libre-caslon);
+  --font-body: var(--font-hanken);
+  --font-mono: var(--font-hanken);
 }
 
 html {
@@ -854,13 +855,24 @@ body {
   }
 }
 
-/* Site header — floating editorial bar */
+/* Site header — Architectural Atelier bar */
 .site-header-glass {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(249, 249, 249, 0.92);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-stone);
   color: var(--color-ink) !important;
+}
+
+/* Mobile bottom nav offset */
+.pb-mobile-nav {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .pb-mobile-nav {
+    padding-bottom: 0;
+  }
 }
 
 .site-header-glass .text-marble,
