@@ -73,6 +73,34 @@ if (missing.length) {
 
 const ENDPOINT = `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
+/** Offset to apply when local clock is skewed vs real UTC (ms). */
+let CLOCK_OFFSET_MS = 0;
+
+async function syncClockOffset() {
+  const probes = [
+    "https://cloudflare.com",
+    "https://www.google.com",
+    "https://1.1.1.1",
+  ];
+  for (const url of probes) {
+    try {
+      const res = await fetch(url, { method: "HEAD", redirect: "follow" });
+      const dateHdr = res.headers.get("date");
+      if (!dateHdr) continue;
+      const remote = Date.parse(dateHdr);
+      if (!Number.isFinite(remote)) continue;
+      CLOCK_OFFSET_MS = remote - Date.now();
+      console.log(
+        `Clock offset vs ${url}: ${Math.round(CLOCK_OFFSET_MS / 1000)}s`
+      );
+      return;
+    } catch {
+      /* try next */
+    }
+  }
+  console.warn("Could not sync clock offset; using local time");
+}
+
 function sha256(data) {
   return createHash("sha256").update(data).digest("hex");
 }
@@ -82,7 +110,7 @@ function hmac(key, data) {
 }
 
 function amzDate() {
-  const d = new Date();
+  const d = new Date(Date.now() + CLOCK_OFFSET_MS);
   const iso = d.toISOString().replace(/[:-]|\.\d{3}/g, "");
   return { amz: iso.slice(0, 15) + "Z", date: iso.slice(0, 8) };
 }
@@ -150,9 +178,22 @@ async function walk(dir, prefix = "") {
   return files;
 }
 
+const prefixArg = process.argv.find((a) => a.startsWith("--prefix="));
+const PREFIX = prefixArg ? prefixArg.split("=")[1].replace(/^\/+|\/+$/g, "") : "";
+
+await syncClockOffset();
+
 const texRoot = path.join(ROOT, "public/catalog-textures");
-const files = await walk(texRoot);
-console.log(`Uploading ${files.length} files to R2 bucket ${BUCKET}...\n`);
+let files = await walk(texRoot);
+if (PREFIX) {
+  files = files.filter((f) => {
+    const rel = f.rel.replace(/\\/g, "/");
+    return rel === PREFIX || rel.startsWith(`${PREFIX}/`);
+  });
+}
+console.log(
+  `Uploading ${files.length} files to R2 bucket ${BUCKET}${PREFIX ? ` (prefix=${PREFIX})` : ""}...\n`
+);
 
 let ok = 0;
 for (const f of files) {
@@ -173,6 +214,12 @@ for (const f of files) {
 }
 
 console.log(`\nUploaded ${ok}/${files.length}`);
+
+if (PREFIX) {
+  console.log(`Skipped JSON rewrite (prefix=${PREFIX}); URLs should already be public.`);
+  console.log("Next: npm run seed-mongo");
+  process.exit(0);
+}
 
 // Rewrite JSON URLs
 function rewriteUrl(u) {

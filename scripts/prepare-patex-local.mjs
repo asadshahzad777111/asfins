@@ -75,10 +75,10 @@ async function exists(p) {
   }
 }
 
-function proxyUrl(remoteUrl, width) {
+function proxyFull(remoteUrl) {
   // Hostinger CDN blocks datacenter IPs; wsrv.nl can still fetch origin images.
-  const encoded = encodeURIComponent(remoteUrl);
-  return `https://wsrv.nl/?url=${encoded}&w=${width}&output=jpg&q=85`;
+  // No width cap — keep near-original fidelity.
+  return `https://wsrv.nl/?url=${encodeURIComponent(remoteUrl)}&n=-1&output=jpg&q=95`;
 }
 
 async function downloadOne(code, remoteUrl) {
@@ -91,10 +91,9 @@ async function downloadOne(code, remoteUrl) {
     return { code, thumbUrl, imageUrl, skipped: true };
   }
 
-  let res = await fetch(proxyUrl(remoteUrl, 900), { headers: { "User-Agent": UA } });
+  let res = await fetch(remoteUrl, { headers: { "User-Agent": UA } });
   if (!res.ok) {
-    // fallback: direct (may work intermittently) then wayback
-    res = await fetch(remoteUrl, { headers: { "User-Agent": UA } });
+    res = await fetch(proxyFull(remoteUrl), { headers: { "User-Agent": UA } });
   }
   if (!res.ok) {
     const wb = `https://web.archive.org/web/2id_/${remoteUrl}`;
@@ -104,13 +103,13 @@ async function downloadOne(code, remoteUrl) {
   const buf = Buffer.from(await res.arrayBuffer());
 
   await sharp(buf)
-    .resize(768, 768, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 82 })
+    .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 92 })
     .toFile(fullDisk);
 
   await sharp(buf)
-    .resize(320, 320, { fit: "cover" })
-    .webp({ quality: 75 })
+    .resize(1024, 1024, { fit: "cover" })
+    .webp({ quality: 90 })
     .toFile(thumbDisk);
 
   return { code, thumbUrl, imageUrl, skipped: false };
@@ -227,7 +226,7 @@ for (const row of products) {
     id,
     name: row.name,
     pricePKR: row.pricePKR ?? 0,
-    image: thumbUrl,
+    image: imageUrl,
     category: "wood-laminate",
     description: row.description ?? `${row.name} — Patex.`,
     active: true,
