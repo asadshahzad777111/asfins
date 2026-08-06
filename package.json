@@ -18,6 +18,7 @@
     "sync-zrk": "node scripts/sync-zrk-mdf.mjs",
     "seed-mongo": "node scripts/seed-mongo.mjs",
     "seed-accessories": "node scripts/seed-accessories.mjs",
+    "apply-uv-stock": "node scripts/apply-uv-zrk-stock.mjs",
     "prepare-zrk": "node scripts/prepare-zrk-local.mjs",
     "prepare-patex": "node scripts/prepare-patex-local.mjs",
     "upload-r2": "node scripts/upload-r2.mjs",
