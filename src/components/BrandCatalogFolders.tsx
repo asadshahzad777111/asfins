@@ -11,6 +11,8 @@ export interface BrandFolderItem {
   count: number;
   previewUrl?: string;
   previewHex?: string;
+  /** Brand string for logo lookup when `name` is a series label */
+  logoBrand?: string;
 }
 
 interface BrandCatalogFoldersProps {
@@ -63,7 +65,10 @@ export function BrandCatalogFolders({
             <div className="absolute inset-0 bg-gradient-to-t from-charcoal/55 via-charcoal/10 to-transparent" />
             {!hideBrandLogo && (
               <div className="absolute bottom-2 left-2 right-2 flex items-end gap-2">
-                <BrandLogo brandName={folder.name} className="h-6 w-auto max-w-[40%] object-contain drop-shadow" />
+                <BrandLogo
+                  brandName={folder.logoBrand || folder.name}
+                  className="h-6 w-auto max-w-[40%] object-contain drop-shadow"
+                />
               </div>
             )}
           </div>

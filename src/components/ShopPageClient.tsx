@@ -2,46 +2,193 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { formatPKR, resolveSheetRate } from "@/lib/rates";
 import {
   SHOP_FILTERS,
+  isSheetCategory,
   productMatchesShopFilter,
   type ShopFilterId,
   unitLabelForCategory,
 } from "@/lib/products/categories";
+import {
+  buildSheetCatalogFolders,
+  productCatalogLabel,
+  productInCatalog,
+} from "@/lib/products/shop-catalogs";
 import { getStockStatus, stockStatusLabelKey } from "@/lib/stock";
 import type { Product } from "@/lib/products/types";
+import { BrandCatalogFolders } from "@/components/BrandCatalogFolders";
 import { Reveal } from "@/components/motion/Reveal";
 
 interface ShopPageClientProps {
   products: Product[];
 }
 
+const ease = [0.22, 1, 0.36, 1] as const;
+
+function ProductCard({ p }: { p: Product }) {
+  const { t } = useLanguage();
+  const rate = resolveSheetRate({
+    pricePKR: p.pricePKR,
+    materialCategory: p.materialCategory,
+    substrate: p.substrate,
+    description: p.description,
+  });
+  const unitKey = unitLabelForCategory(p.category);
+  const stock = getStockStatus(p.stock, p.lowStockAt);
+  const catalogLabel = isSheetCategory(p.category)
+    ? productCatalogLabel(p)
+    : p.brandName;
+
+  return (
+    <Link
+      href={`/products/${p.id}`}
+      className="group flex flex-col border border-divider bg-paper transition-colors hover:border-ink/30"
+    >
+      <div className="relative aspect-[4/3] overflow-hidden bg-base">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={p.image}
+          alt={p.name}
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+        />
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        {catalogLabel && (
+          <p className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-brass">
+            {catalogLabel}
+          </p>
+        )}
+        {p.productCode && (
+          <p className="mt-0.5 font-mono-data text-[10px] text-muted">
+            {p.productCode}
+          </p>
+        )}
+        <h2 className="font-display mt-1 text-lg leading-snug text-charcoal">
+          {p.name}
+        </h2>
+        <p className="mt-2 font-mono-data text-sm text-ink">
+          {rate != null ? formatPKR(rate) : t("ratesComingSoon")}
+          {rate != null && (
+            <span className="ml-1 text-[10px] uppercase tracking-wider text-muted">
+              {t(unitKey)}
+            </span>
+          )}
+        </p>
+        <p className="mt-auto pt-3 font-mono-data text-[10px] uppercase tracking-wider text-muted">
+          {t(stockStatusLabelKey(stock))}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
 export function ShopPageClient({ products }: ShopPageClientProps) {
   const { t } = useLanguage();
   const [filter, setFilter] = useState<ShopFilterId>("all");
   const [query, setQuery] = useState("");
+  const [openCatalogId, setOpenCatalogId] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return products.filter((p) => {
-      if (!productMatchesShopFilter(p.category, filter)) return false;
-      if (!q) return true;
+  const typeFiltered = useMemo(
+    () => products.filter((p) => productMatchesShopFilter(p.category, filter)),
+    [products, filter]
+  );
+
+  const folders = useMemo(
+    () => buildSheetCatalogFolders(typeFiltered),
+    [typeFiltered]
+  );
+
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+
+  const showCatalogFolders =
+    !searching &&
+    !openCatalogId &&
+    (filter === "all" || filter === "sheets") &&
+    folders.length > 0;
+
+  const accessoryOnly =
+    filter !== "all" && filter !== "sheets" && !isSheetCategory(filter);
+
+  const openFolder = folders.find((f) => f.id === openCatalogId) ?? null;
+
+  const listedProducts = useMemo(() => {
+    let list = typeFiltered;
+    if (openCatalogId && !searching) {
+      list = list.filter((p) => productInCatalog(p, openCatalogId));
+    } else if (showCatalogFolders) {
+      // folders view — no flat list
+      list = [];
+    } else if (filter === "all" && !searching && !accessoryOnly) {
+      // when somehow no folders, fall through
+      list = typeFiltered;
+    }
+
+    if (!q) return list;
+    return list.filter((p) => {
       const hay = [
         p.name,
         p.productCode,
         p.brandName,
+        p.materialCategory,
         p.category,
         p.description,
         p.colorDescription,
+        productCatalogLabel(p),
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [products, filter, query]);
+  }, [
+    typeFiltered,
+    openCatalogId,
+    searching,
+    showCatalogFolders,
+    filter,
+    accessoryOnly,
+    q,
+  ]);
+
+  /** Search across all type-filtered products */
+  const searchResults = useMemo(() => {
+    if (!searching) return [];
+    return typeFiltered.filter((p) => {
+      const hay = [
+        p.name,
+        p.productCode,
+        p.brandName,
+        p.materialCategory,
+        p.category,
+        p.description,
+        p.colorDescription,
+        productCatalogLabel(p),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [typeFiltered, searching, q]);
+
+  const gridProducts = searching
+    ? searchResults
+    : accessoryOnly || openCatalogId
+      ? listedProducts.length
+        ? listedProducts
+        : typeFiltered.filter((p) =>
+            openCatalogId ? productInCatalog(p, openCatalogId) : true
+          )
+      : listedProducts;
+
+  function setTypeFilter(id: ShopFilterId) {
+    setFilter(id);
+    setOpenCatalogId(null);
+  }
 
   return (
     <div className="bg-marble">
@@ -54,7 +201,7 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
             {t("productsTitle")}
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted">
-            {t("productsSubtitle")}
+            {t("productsSubtitleCatalogs")}
           </p>
         </Reveal>
 
@@ -66,7 +213,7 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
                 <button
                   key={f.id}
                   type="button"
-                  onClick={() => setFilter(f.id)}
+                  onClick={() => setTypeFilter(f.id)}
                   className={`border px-3 py-1.5 font-mono-data text-[11px] uppercase tracking-wider transition-colors ${
                     active
                       ? "border-ink bg-ink text-paper"
@@ -89,61 +236,119 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
           </label>
         </div>
 
-        {filtered.length === 0 ? (
-          <p className="mt-12 border border-divider bg-paper p-8 text-center text-muted">
-            {t("productsNoMatch")}
-          </p>
-        ) : (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((p) => {
-              const rate = resolveSheetRate({
-                pricePKR: p.pricePKR,
-                materialCategory: p.materialCategory,
-                substrate: p.substrate,
-                description: p.description,
-              });
-              const unitKey = unitLabelForCategory(p.category);
-              const stock = getStockStatus(p.stock, p.lowStockAt);
-              return (
-                <Link
-                  key={p.id}
-                  href={`/products/${p.id}`}
-                  className="group flex flex-col border border-divider bg-paper transition-colors hover:border-ink/30"
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-base">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                    />
+        <AnimatePresence mode="wait">
+          {showCatalogFolders ? (
+            <motion.div
+              key="folders"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35, ease }}
+              className="mt-10"
+            >
+              <p className="mb-4 font-mono-data text-[11px] uppercase tracking-[0.18em] text-muted">
+                {t("chooseCatalogFolder")}
+              </p>
+              <BrandCatalogFolders
+                folders={folders.map((f) => ({
+                  id: f.id,
+                  name: f.label,
+                  logoBrand: f.brandName,
+                  count: f.count,
+                  previewUrl: f.previewUrl,
+                }))}
+                onOpen={setOpenCatalogId}
+                hideBrandLogo={false}
+              />
+
+              {filter === "all" &&
+                products.some((p) => !isSheetCategory(p.category)) && (
+                  <div className="mt-10">
+                    <p className="mb-4 font-mono-data text-[11px] uppercase tracking-[0.18em] text-muted">
+                      {t("filterAccessories")}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {(
+                        [
+                          "handles",
+                          "hardware",
+                          "organizers",
+                          "sinks",
+                          "accessories",
+                        ] as const
+                      ).map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setTypeFilter(id)}
+                          className="border border-divider bg-paper px-4 py-2 font-mono-data text-[11px] uppercase tracking-wider text-ink hover:border-ink"
+                        >
+                          {t(
+                            id === "handles"
+                              ? "filterHandles"
+                              : id === "hardware"
+                                ? "filterHardware"
+                                : id === "organizers"
+                                  ? "filterOrganizers"
+                                  : id === "sinks"
+                                    ? "filterSinks"
+                                    : "filterAccessories"
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex flex-1 flex-col p-4">
-                    {p.brandName && (
-                      <p className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-brass">
-                        {p.brandName}
-                      </p>
-                    )}
-                    <h2 className="font-display mt-1 text-lg leading-snug text-charcoal">
-                      {p.name}
+                )}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="grid"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35, ease }}
+              className="mt-10"
+            >
+              {(openCatalogId || (!accessoryOnly && !searching && filter === "sheets")) &&
+                openFolder && (
+                  <div className="mb-6 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setOpenCatalogId(null)}
+                      className="font-mono-data text-xs text-brass hover:underline"
+                    >
+                      {t("allCatalogFolders")}
+                    </button>
+                    <span className="text-muted">/</span>
+                    <h2 className="font-display text-2xl text-charcoal">
+                      {openFolder.label}
                     </h2>
-                    <p className="mt-2 font-mono-data text-sm text-ink">
-                      {rate != null ? formatPKR(rate) : t("ratesComingSoon")}
-                      {rate != null && (
-                        <span className="ml-1 text-[10px] uppercase tracking-wider text-muted">
-                          {t(unitKey)}
-                        </span>
-                      )}
-                    </p>
-                    <p className="mt-auto pt-3 font-mono-data text-[10px] uppercase tracking-wider text-muted">
-                      {t(stockStatusLabelKey(stock))}
-                    </p>
+                    <span className="font-mono-data text-[10px] uppercase tracking-wider text-muted">
+                      {t("folderSheetCount", { count: openFolder.count })}
+                    </span>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+                )}
+
+              {searching && (
+                <p className="mb-4 font-mono-data text-[11px] uppercase tracking-wider text-muted">
+                  {t("searchResultsCount", { count: gridProducts.length })}
+                </p>
+              )}
+
+              {gridProducts.length === 0 ? (
+                <p className="border border-divider bg-paper p-8 text-center text-muted">
+                  {t("productsNoMatch")}
+                </p>
+              ) : (
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {gridProducts.map((p) => (
+                    <ProductCard key={p.id} p={p} />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

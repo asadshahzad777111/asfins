@@ -186,6 +186,11 @@ export const translations = {
     productsTitle: "Shop",
     productsSubtitle:
       "Laminate sheets and kitchen accessories — filter by type, see the rate, add to cart or order on WhatsApp.",
+    productsSubtitleCatalogs:
+      "Open a catalog first — ZRK UV Lux, Patex, Patex Elegance, and more — then browse colours with rates.",
+    chooseCatalogFolder: "Choose a catalog",
+    allCatalogFolders: "← All catalogs",
+    searchResultsCount: "{count} results",
     emptyProducts: "No products yet. Add them from the admin panel.",
     chooseBrandFolder: "Choose a brand",
     allBrandFolders: "← All brands",
@@ -834,6 +839,11 @@ export const translations = {
     productsTitle: "Shop",
     productsSubtitle:
       "Laminate sheets aur kitchen accessories — type filter, rate dekhein, cart ya WhatsApp order.",
+    productsSubtitleCatalogs:
+      "Pehle catalog kholein — ZRK UV Lux, Patex, Patex Elegance — phir colours + rates.",
+    chooseCatalogFolder: "Catalog choose karein",
+    allCatalogFolders: "← Tamam catalogs",
+    searchResultsCount: "{count} results",
     emptyProducts: "Abhi koi product nahi. Admin panel se add karein.",
     chooseBrandFolder: "Brand choose karein",
     allBrandFolders: "← Tamam brands",
