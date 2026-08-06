@@ -28,6 +28,19 @@ const CATALOG_ID = "patex-elegance";
 const PUBLIC_R2 =
   process.env.R2_PUBLIC_URL?.replace(/\/$/, "") ||
   "https://pub-901502176f964fd18fa9e875b6346c6f.r2.dev";
+/** Person / lifestyle pages that must not enter the shop catalog */
+const SKIP_PAGE_CODES = new Set(["1012", "1018"]);
+const SKIP_NAME_RE = /roberto|soffiatti|chief designer/i;
+
+function shouldSkipPatexRow(sheetCode, name, fileKey) {
+  const code = String(sheetCode || "")
+    .replace(/^EL-/i, "")
+    .replace(/[^A-Za-z0-9]/g, "");
+  const key = String(fileKey || "").replace(/[^A-Za-z0-9]/g, "");
+  if (SKIP_PAGE_CODES.has(code) || SKIP_PAGE_CODES.has(key)) return true;
+  if (SKIP_NAME_RE.test(String(name || ""))) return true;
+  return false;
+}
 
 function fallbackHex(name) {
   const c = (name || "").toLowerCase();
@@ -307,6 +320,14 @@ for (const row of rows) {
   usedCodes.add(sheetCode);
 
   const id = `patex-el-${row.fileKey}`;
+  if (shouldSkipPatexRow(sheetCode, row.name, row.fileKey)) {
+    console.log("Skip bad page:", sheetCode, row.name);
+    // Keep product deactivated if it already exists; never add to catalog
+    const pIdx = productsData.products.findIndex((p) => p.id === id);
+    if (pIdx >= 0) productsData.products[pIdx].active = false;
+    continue;
+  }
+
   const imageUrl = `${PUBLIC_R2}/catalog-textures/patex-elegance/${row.fileKey}.webp`;
   const thumbUrl = `${PUBLIC_R2}/catalog-textures/patex-elegance/thumbs/${row.fileKey}.webp`;
 

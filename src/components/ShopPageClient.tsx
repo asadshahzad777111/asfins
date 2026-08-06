@@ -17,7 +17,11 @@ import {
   productCatalogLabel,
   productInCatalog,
 } from "@/lib/products/shop-catalogs";
-import { getStockStatus, stockStatusLabelKey } from "@/lib/stock";
+import {
+  compareByStockAvailability,
+  getStockStatus,
+  stockStatusLabelKey,
+} from "@/lib/stock";
 import type { Product } from "@/lib/products/types";
 import { BrandCatalogFolders } from "@/components/BrandCatalogFolders";
 import { Reveal } from "@/components/motion/Reveal";
@@ -164,8 +168,8 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
       list = typeFiltered;
     }
 
-    if (!q) return list;
-    return list.filter((p) => matchesProductQuery(p, q));
+    if (q) list = list.filter((p) => matchesProductQuery(p, q));
+    return [...list].sort(compareByStockAvailability);
   }, [
     typeFiltered,
     openCatalogId,
@@ -179,7 +183,9 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
   /** Search across all type-filtered products */
   const searchResults = useMemo(() => {
     if (!searching) return [];
-    return typeFiltered.filter((p) => matchesProductQuery(p, q));
+    return typeFiltered
+      .filter((p) => matchesProductQuery(p, q))
+      .sort(compareByStockAvailability);
   }, [typeFiltered, searching, q]);
 
   const gridProducts = searching
@@ -187,9 +193,11 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
     : accessoryOnly || openCatalogId
       ? listedProducts.length
         ? listedProducts
-        : typeFiltered.filter((p) =>
-            openCatalogId ? productInCatalog(p, openCatalogId) : true
-          )
+        : [...typeFiltered]
+            .filter((p) =>
+              openCatalogId ? productInCatalog(p, openCatalogId) : true
+            )
+            .sort(compareByStockAvailability)
       : listedProducts;
 
   function setTypeFilter(id: ShopFilterId) {

@@ -23,3 +23,19 @@ export function stockStatusLabelKey(
   if (status === "low_stock") return "lowStock";
   return "inStock";
 }
+
+/** Sort key: in-stock / low-stock / unknown first; out-of-stock last. */
+export function stockSortRank(
+  stock: number | undefined | null,
+  lowStockAt: number | undefined | null = DEFAULT_LOW_STOCK_AT
+): number {
+  // Missing stock → treat as available (don't bury products without qty set)
+  if (stock == null) return 0;
+  return getStockStatus(stock, lowStockAt) === "out_of_stock" ? 1 : 0;
+}
+
+export function compareByStockAvailability<
+  T extends { stock?: number | null; lowStockAt?: number | null },
+>(a: T, b: T): number {
+  return stockSortRank(a.stock, a.lowStockAt) - stockSortRank(b.stock, b.lowStockAt);
+}
