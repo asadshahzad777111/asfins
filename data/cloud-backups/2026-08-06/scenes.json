@@ -1,0 +1,28 @@
+{
+  "scenes": [
+    {
+      "id": "new2",
+      "name": "new2",
+      "thumbnail": "/scenes/new2/thumb.jpg",
+      "description": "new2 — apna colour choose karein",
+      "category": "kitchen",
+      "zoneCount": 1
+    },
+    {
+      "id": "kitchen-1",
+      "name": "Modern Black Kitchen",
+      "thumbnail": "/scenes/kitchen-1/thumb.jpg",
+      "description": "AI kitchen — black cabinets cut transparent (Photopea-style). Tap wood colour on cabinets & island.",
+      "category": "kitchen",
+      "zoneCount": 2
+    },
+    {
+      "id": "kitchen-real",
+      "name": "Real Kitchen Photo",
+      "thumbnail": "/scenes/kitchen-real/base.jpg",
+      "description": "Aapki kitchen photo — cabinet colour catalog se change karein",
+      "category": "kitchen",
+      "zoneCount": 1
+    }
+  ]
+}
