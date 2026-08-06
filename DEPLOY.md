@@ -101,12 +101,14 @@ npm run mirror-zrk
 
 ---
 
-## Step 5 — Admin panel
+## Step 5 — Admin panel (shop-first)
 
 - URL: `https://asfins.com/admin`
 - Password: jo `ADMIN_PASSWORD` set kiya
-- Catalogs → ZRK sync / bulk import
-- Scenes → kitchen rooms upload
+- **Products** → sheets + kitchen accessories (name, photo, category, rate, stock)
+- **Orders** → website cart COD orders; Confirm = stock decrement
+- Sales / Purchases → manual ledgers (optional)
+- Scenes / Catalogs → legacy colour studio (hidden from public nav)
 
 ---
 
@@ -115,6 +117,7 @@ npm run mirror-zrk
 `.env` / Vercel mein update karo:
 - `NEXT_PUBLIC_WHATSAPP` = apna dealer line number
 - `NEXT_PUBLIC_CONTACT_EMAIL` = `hello@asfins.com` (Cloudflare Email Routing free)
+- Optional Meta Cloud API: order + inquiry alerts shop WhatsApp pe
 
 ---
 
@@ -122,11 +125,17 @@ npm run mirror-zrk
 
 ```bash
 npm run dev              # local test
+npm run seed-accessories # starter handles/hardware/sinks → data/products.json
 npm run scrape-zrk-mdf:import   # new ZRK products
 npm run mirror-zrk       # images local/CDN
 npm run sync-zrk         # incremental ZRK sync
-npm run seed-mongo       # JSON → MongoDB
+npm run seed-mongo       # JSON → MongoDB `asfins` (alag DB — gear URI mat use karo)
 ```
+
+Public shop smoke test after deploy:
+1. `/` shop home → `/products` filter + rates
+2. Product → Add to cart → `/cart` COD order
+3. `/admin/orders` mein order dikhe
 
 ---
 
@@ -134,11 +143,11 @@ npm run seed-mongo       # JSON → MongoDB
 
 - [ ] Vercel deploy OK
 - [ ] asfins.com DNS → Vercel
-- [ ] MongoDB connected
+- [ ] MongoDB connected (`MONGODB_DB_NAME=asfins`)
 - [ ] ADMIN_PASSWORD changed
 - [ ] WhatsApp number updated
-- [ ] Products/catalog seeded
-- [ ] `https://asfins.com/studio` test
+- [ ] Products seeded (`seed-accessories` + sheets)
+- [ ] `https://asfins.com/products` + cart order test
 
 ---
 

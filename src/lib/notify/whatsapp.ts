@@ -125,3 +125,51 @@ export function buildInquiryCustomerAck(name: string): string {
     `WhatsApp: ${local}`,
   ].join("\n");
 }
+
+export function buildOrderShopAlert(order: {
+  orderNumber: string;
+  name: string;
+  phone: string;
+  city?: string;
+  note?: string;
+  totalPKR: number;
+  items: { name: string; qty: number; pricePKR: number }[];
+}): string {
+  const lines = order.items
+    .slice(0, 12)
+    .map(
+      (i) =>
+        `• ${i.qty}× ${i.name} — PKR ${(i.pricePKR * i.qty).toLocaleString("en-PK")}`
+    );
+  if (order.items.length > 12) {
+    lines.push(`… +${order.items.length - 12} more`);
+  }
+  return [
+    `NEW ORDER - ${BRAND}`,
+    "---------------------",
+    `Order: ${order.orderNumber}`,
+    `Name: ${order.name}`,
+    `Phone: ${order.phone}`,
+    order.city ? `City: ${order.city}` : null,
+    "Payment: COD",
+    "---------------------",
+    ...lines,
+    "---------------------",
+    `Total: PKR ${order.totalPKR.toLocaleString("en-PK")}`,
+    order.note ? `Note: ${order.note.slice(0, 160)}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildOrderCustomerAck(name: string, orderNumber: string): string {
+  const shop = shopWhatsAppIntl();
+  const local = shop.startsWith("92") ? `0${shop.slice(2)}` : shop;
+  return [
+    `Assalam o Alaikum ${name}!`,
+    `${BRAND} — aapka order ${orderNumber} receive ho gaya.`,
+    "Payment: Cash on delivery / pickup.",
+    "Hum jald confirm karenge.",
+    `WhatsApp: ${local}`,
+  ].join("\n");
+}

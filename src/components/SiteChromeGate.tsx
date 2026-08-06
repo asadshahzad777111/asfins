@@ -12,18 +12,14 @@ export function SiteChromeGate({ children }: { children: React.ReactNode }) {
     pathname === "/studio" ||
     pathname.startsWith("/studio/") ||
     pathname.startsWith("/configurator");
-  const showStickyAtelier =
-    pathname.startsWith("/gallery") || pathname.startsWith("/products");
+  const showStickyShop =
+    pathname === "/" ||
+    pathname.startsWith("/about") ||
+    pathname.startsWith("/contact");
   const showWhatsApp =
     !isAdmin &&
     !pathname.startsWith("/studio/") &&
-    !pathname.startsWith("/configurator") &&
-    (pathname.startsWith("/gallery") ||
-      pathname.startsWith("/products") ||
-      pathname.startsWith("/materials") ||
-      pathname.startsWith("/about") ||
-      pathname.startsWith("/contact") ||
-      pathname === "/");
+    !pathname.startsWith("/configurator");
 
   if (isAdmin || isStudioFlow) {
     return <main className="flex-1">{children}</main>;
@@ -34,10 +30,10 @@ export function SiteChromeGate({ children }: { children: React.ReactNode }) {
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
-      {showStickyAtelier && <StickyAtelierCTA />}
+      {showStickyShop && <StickyAtelierCTA />}
       {showWhatsApp && (
         <StickyWhatsAppButton
-          className={showStickyAtelier ? "bottom-20 sm:bottom-6" : ""}
+          className={showStickyShop ? "bottom-20 sm:bottom-6" : ""}
         />
       )}
     </>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-label="ASFins product">
+  <rect width="800" height="600" fill="#ebe4d8"/>
+  <rect x="80" y="80" width="640" height="440" fill="none" stroke="#1c1410" stroke-opacity="0.15" stroke-width="2"/>
+  <text x="400" y="300" text-anchor="middle" font-family="Georgia, serif" font-size="36" fill="#1c1410" fill-opacity="0.45">ASFins</text>
+  <text x="400" y="340" text-anchor="middle" font-family="monospace" font-size="14" fill="#b8955a" letter-spacing="4">PRODUCT</text>
+</svg>

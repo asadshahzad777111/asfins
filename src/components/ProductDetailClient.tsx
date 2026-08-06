@@ -1,10 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
-import { parseSeriesFromDescription, resolveSheetRate } from "@/lib/rates";
+import { parseSeriesFromDescription, resolveSheetRate, formatPKR } from "@/lib/rates";
 import { StockRateBadge } from "@/components/StockRateBadge";
+import { useCart } from "@/lib/cart/CartContext";
+import {
+  isSheetCategory,
+  unitLabelForCategory,
+} from "@/lib/products/categories";
+import { whatsappUrl } from "@/lib/share";
 import type { Product } from "@/lib/products/types";
 
 interface ProductDetailClientProps {
@@ -27,6 +34,8 @@ interface SpecRow {
 
 export function ProductDetailClient({ product }: ProductDetailClientProps) {
   const { t } = useLanguage();
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
 
   const series =
     product.materialCategory ?? parseSeriesFromDescription(product.description);
@@ -36,6 +45,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     substrate: product.substrate,
     description: product.description,
   });
+  const displayRate = rate ?? product.pricePKR;
+  const sheet = isSheetCategory(product.category);
 
   const substrateLabel =
     product.substrate === "mdf"
@@ -62,6 +73,27 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
     ] as SpecRow[]
   ).filter((s) => s.value);
 
+  function handleAdd() {
+    addItem({
+      productId: product.id,
+      name: product.name,
+      pricePKR: displayRate,
+      image: product.image,
+      category: product.category,
+    });
+    setAdded(true);
+    window.setTimeout(() => setAdded(false), 2000);
+  }
+
+  const waMsg = [
+    `Hi ASFins — I want to order:`,
+    `${product.name}`,
+    product.productCode ? `Code: ${product.productCode}` : null,
+    `Rate: ${formatPKR(displayRate)}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return (
     <div className="bg-marble">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
@@ -74,7 +106,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="overflow-hidden rounded-sm border border-divider bg-white shadow-sm"
+            className="overflow-hidden border border-divider bg-white"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -105,10 +137,13 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
             <div className="mt-5">
               <StockRateBadge
-                rate={rate}
+                rate={displayRate}
                 stock={product.stock}
                 lowStockAt={product.lowStockAt}
               />
+              <p className="mt-1 font-mono-data text-[10px] uppercase tracking-wider text-muted">
+                {t(unitLabelForCategory(product.category))}
+              </p>
             </div>
 
             {product.description && (
@@ -116,6 +151,27 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             )}
 
             <div className="mt-8 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleAdd}
+                className="bg-ink px-6 py-3 text-sm text-paper transition-opacity hover:opacity-85"
+              >
+                {added ? t("addedToCart") : t("addToCart")}
+              </button>
+              <Link
+                href="/cart"
+                className="border border-ink/20 px-6 py-3 text-sm text-ink hover:border-ink/40"
+              >
+                {t("viewCart")}
+              </Link>
+              <a
+                href={whatsappUrl(waMsg)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-ink/20 px-6 py-3 text-sm text-ink hover:border-ink/40"
+              >
+                {t("orderOnWhatsApp")}
+              </a>
               {product.technicalSheetUrl && (
                 <a
                   href={product.technicalSheetUrl}
@@ -126,9 +182,6 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                   {t("technicalSheet")} ↓
                 </a>
               )}
-              <Link href="/gallery/kitchen" className="btn-primary">
-                {t("visualizeThis")}
-              </Link>
             </div>
 
             {specs.length > 0 && (
@@ -151,33 +204,12 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 </table>
               </div>
             )}
+
+            {!sheet && (
+              <p className="mt-8 text-sm text-muted">{t("accessoryOrderHint")}</p>
+            )}
           </motion.div>
         </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="vds-cta relative mt-16 px-8 py-10 sm:px-12"
-        >
-          <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-mono-data text-xs uppercase tracking-[0.3em] text-brass">
-                {t("colorVisualizer")}
-              </p>
-              <h2 className="font-display mt-2 text-xl text-marble sm:text-2xl">
-                {t("virtualDesignStudio")}
-              </h2>
-              <p className="mt-2 max-w-md text-sm text-marble/75">
-                {t("virtualDesignStudioDesc")}
-              </p>
-            </div>
-            <Link href="/gallery/kitchen" className="btn-primary shrink-0 self-start sm:self-center">
-              {t("startVisualizing")}
-            </Link>
-          </div>
-        </motion.div>
       </div>
     </div>
   );

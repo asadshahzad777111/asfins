@@ -20,7 +20,7 @@ const dmSans = DM_Sans({
 });
 
 const SITE_DESCRIPTION =
-  "ASFins colour studio — preview wood & laminate on real kitchen photos in Lahore. Patex, ZRK and partner catalogs, then request a dealer quote.";
+  "ASFins — laminate sheets and kitchen accessories with clear PKR rates. Cart, COD / WhatsApp orders in Lahore.";
 
 const OG_IMAGE = {
   url: "/scenes/kitchen-modern/base.jpg",

@@ -70,7 +70,7 @@ export function ContactPageClient() {
                 </p>
               </div>
               <Link
-                href="/studio/kitchen"
+                href="/products"
                 className="nav-underline inline-block text-[15px]"
               >
                 {t("contactStudioCta")} →

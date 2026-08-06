@@ -7,18 +7,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { SHOP } from "@/lib/constants";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useCart } from "@/lib/cart/CartContext";
 
 const NAV_LINKS = [
-  { href: "/studio", key: "virtualDesignStudio" as const },
-  { href: "/gallery", key: "gallery" as const },
   { href: "/products", key: "products" as const },
   { href: "/about", key: "about" as const },
   { href: "/contact", key: "contact" as const },
 ];
-
-const HEADER_QUICK_LINKS = NAV_LINKS.filter(
-  (l) => l.href === "/gallery" || l.href === "/products"
-);
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -26,12 +21,13 @@ export function Header() {
   const { t } = useLanguage();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { count } = useCart();
 
   return (
     <>
       <header className="site-header-glass sticky top-0 z-50 text-ink">
         <div className="flex items-center gap-3 px-[clamp(1.25rem,4vw,2.5rem)] py-4 sm:gap-4">
-          <Link href="/studio" className="flex shrink-0 flex-col">
+          <Link href="/" className="flex shrink-0 flex-col">
             <p className="font-display text-lg leading-none tracking-tight sm:text-xl">
               {SHOP.name}
               <span className="align-super text-[0.5em]">®</span>
@@ -60,29 +56,24 @@ export function Header() {
           </nav>
 
           <div className="ml-auto flex shrink-0 items-center gap-2.5 sm:gap-4">
-            <nav className="flex items-center gap-3 lg:hidden" aria-label="Quick links">
-              {HEADER_QUICK_LINKS.map((link) => {
-                const active =
-                  pathname === link.href || pathname.startsWith(`${link.href}/`);
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`text-[12px] tracking-wide ${
-                      active ? "text-ink" : "text-muted hover:text-ink"
-                    }`}
-                  >
-                    {t(link.key)}
-                  </Link>
-                );
-              })}
-            </nav>
             <LanguageSwitcher variant="light" />
             <Link
-              href="/studio/kitchen"
+              href="/cart"
+              className="relative text-[13px] text-ink"
+              aria-label={t("cartTitle")}
+            >
+              {t("cart")}
+              {count > 0 && (
+                <span className="ml-1 font-mono-data text-[11px] text-brass">
+                  ({count})
+                </span>
+              )}
+            </Link>
+            <Link
+              href="/products"
               className="hidden bg-ink px-4 py-2.5 text-[12px] text-paper transition-opacity hover:opacity-80 sm:inline"
             >
-              {t("enterStudio")}
+              {t("browseShop")}
             </Link>
             <button
               type="button"
@@ -126,14 +117,28 @@ export function Header() {
               <motion.div
                 initial={{ y: 24, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.25, duration: 0.45, ease }}
+              >
+                <Link
+                  href="/cart"
+                  onClick={() => setMenuOpen(false)}
+                  className="font-display block py-3 text-4xl tracking-tight"
+                >
+                  {t("cart")}
+                  {count > 0 ? ` (${count})` : ""}
+                </Link>
+              </motion.div>
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.35, duration: 0.45, ease }}
               >
                 <Link
-                  href="/studio/kitchen"
+                  href="/products"
                   onClick={() => setMenuOpen(false)}
                   className="mt-6 inline-block border border-paper px-6 py-3 text-[13px]"
                 >
-                  {t("enterStudio")} →
+                  {t("browseShop")} →
                 </Link>
               </motion.div>
             </nav>
@@ -163,14 +168,11 @@ export function Footer() {
             </p>
           </div>
           <div className="flex flex-col gap-3 text-[13px] sm:items-end">
-            <Link href="/studio" className="nav-underline hover:opacity-70">
-              {t("virtualDesignStudio")}
-            </Link>
-            <Link href="/gallery" className="nav-underline hover:opacity-70">
-              {t("gallery")}
-            </Link>
             <Link href="/products" className="nav-underline hover:opacity-70">
               {t("products")}
+            </Link>
+            <Link href="/cart" className="nav-underline hover:opacity-70">
+              {t("cart")}
             </Link>
             <Link href="/about" className="nav-underline hover:opacity-70">
               {t("about")}

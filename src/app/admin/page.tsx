@@ -4,6 +4,6 @@ import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
 
 export default async function AdminPage() {
   const authed = await isAdminAuthenticated();
-  if (authed) redirect("/admin/scenes");
+  if (authed) redirect("/admin/products");
   return <AdminLoginForm />;
 }

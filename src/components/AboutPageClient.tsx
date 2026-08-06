@@ -35,7 +35,7 @@ export function AboutPageClient() {
 
           <div className="mt-12 flex flex-wrap gap-4">
             <Link
-              href="/studio/kitchen"
+              href="/products"
               className="bg-ink px-6 py-3.5 text-[13px] text-paper transition-opacity hover:opacity-80"
             >
               {t("enterStudio")} →

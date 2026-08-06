@@ -9,12 +9,13 @@ import { useLanguage } from "@/lib/i18n/LanguageContext";
 import "./admin-wp.css";
 
 const NAV_ITEMS = [
-  { href: "/admin/scenes", key: "tabScenes" as const, section: "content" },
-  { href: "/admin/catalogs", key: "tabCatalogs" as const, section: "content" },
   { href: "/admin/products", key: "tabProducts" as const, section: "shop" },
+  { href: "/admin/orders", key: "tabOrders" as const, section: "shop" },
   { href: "/admin/sales", key: "tabSales" as const, section: "shop" },
   { href: "/admin/purchases", key: "tabPurchases" as const, section: "shop" },
   { href: "/admin/inquiries", key: "tabInquiries" as const, section: "content" },
+  { href: "/admin/scenes", key: "tabScenes" as const, section: "content" },
+  { href: "/admin/catalogs", key: "tabCatalogs" as const, section: "content" },
 ];
 
 export function AdminShellClient({ children }: { children: React.ReactNode }) {
@@ -48,9 +49,9 @@ export function AdminShellClient({ children }: { children: React.ReactNode }) {
               >
                 Menu
               </button>
-              <span className="wp-admin-bar-site">{t("colorVisualizer")}</span>
+              <span className="wp-admin-bar-site">{t("adminShopLabel")}</span>
               <span className="wp-admin-bar-live">Live</span>
-              <Link href="/gallery" className="wp-admin-bar-link" target="_blank">
+              <Link href="/products" className="wp-admin-bar-link" target="_blank">
                 {t("viewSite")}
               </Link>
             </div>

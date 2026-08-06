@@ -33,10 +33,10 @@ export function StickyAtelierCTA() {
             <p className="truncate text-sm text-ink">{t("stickyCtaCopy")}</p>
           </div>
           <Link
-            href="/studio/kitchen"
+            href="/products"
             className="shrink-0 bg-ink px-4 py-2.5 text-[12px] text-paper transition-opacity hover:opacity-80"
           >
-            {t("enterStudio")}
+            {t("browseShop")}
           </Link>
         </motion.div>
       )}

@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   }
 
   const productId = slugifyProductId(name);
-  let imagePath = imageUrl ?? "/products/placeholder.jpg";
+  let imagePath = imageUrl ?? "/products/placeholder.svg";
 
   if (imageFile instanceof File && imageFile.size > 0) {
     const dir = path.join(process.cwd(), "public", "products");

@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import {
+  ADMIN_CATEGORY_OPTIONS,
+  isSheetCategory,
+} from "@/lib/products/categories";
 import type { Product } from "@/lib/products/types";
 
 interface ProductsAdminProps {
   initialProducts: Product[];
 }
 
-const EMPTY_ZRK = {
+const EMPTY_EXTRA = {
   productCode: "",
   surfaceFinish: "",
   colorDescription: "",
@@ -20,8 +24,8 @@ const EMPTY_ZRK = {
   imageUrl: "",
   materialCategory: "",
   substrate: "",
-  stock: "",
-  lowStockAt: "",
+  stock: "1",
+  lowStockAt: "5",
 };
 
 export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
@@ -29,15 +33,17 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
   const [products, setProducts] = useState(initialProducts);
   const [name, setName] = useState("");
   const [pricePKR, setPricePKR] = useState("");
-  const [category, setCategory] = useState("wood-laminate");
+  const [category, setCategory] = useState("accessories");
   const [description, setDescription] = useState("");
   const [image, setImage] = useState<File | null>(null);
-  const [zrk, setZrk] = useState(EMPTY_ZRK);
+  const [extra, setExtra] = useState(EMPTY_EXTRA);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
-  function updateZrk(field: keyof typeof EMPTY_ZRK, value: string) {
-    setZrk((prev) => ({ ...prev, [field]: value }));
+  const sheetFields = isSheetCategory(category);
+
+  function updateExtra(field: keyof typeof EMPTY_EXTRA, value: string) {
+    setExtra((prev) => ({ ...prev, [field]: value }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -52,7 +58,7 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
     form.append("description", description);
     form.append("active", "true");
     if (image) form.append("image", image);
-    for (const [key, val] of Object.entries(zrk)) {
+    for (const [key, val] of Object.entries(extra)) {
       if (val) form.append(key, val);
     }
 
@@ -66,7 +72,7 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
       setPricePKR("");
       setDescription("");
       setImage(null);
-      setZrk(EMPTY_ZRK);
+      setExtra(EMPTY_EXTRA);
     } else {
       setMessage({ type: "err", text: data.error ?? "Save fail" });
     }
@@ -119,104 +125,38 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
               onChange={(e) => setPricePKR(e.target.value)}
               className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
               required
+              min={1}
             />
           </label>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="text-sm font-medium">{t("productCodeLabel")}</span>
-            <input
-              value={zrk.productCode}
-              onChange={(e) => updateZrk("productCode", e.target.value)}
-              placeholder="3001"
+            <span className="text-sm font-medium">{t("category")}</span>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
               className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-            />
+            >
+              {ADMIN_CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.id === "marble"
+                    ? `${t(opt.labelKey)} (marble)`
+                    : opt.id === "wood-laminate"
+                      ? `${t(opt.labelKey)} (laminate)`
+                      : t(opt.labelKey)}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block">
             <span className="text-sm font-medium">{t("brandNameLabel")}</span>
             <input
-              value={zrk.brandName}
-              onChange={(e) => updateZrk("brandName", e.target.value)}
-              placeholder="ZRK Group"
+              value={extra.brandName}
+              onChange={(e) => updateExtra("brandName", e.target.value)}
+              placeholder="ASFins"
               className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
             />
-          </label>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium">{t("surfaceFinishLabel")}</span>
-            <input
-              value={zrk.surfaceFinish}
-              onChange={(e) => updateZrk("surfaceFinish", e.target.value)}
-              placeholder="High Gloss Elite"
-              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">{t("colorDescriptionLabel")}</span>
-            <input
-              value={zrk.colorDescription}
-              onChange={(e) => updateZrk("colorDescription", e.target.value)}
-              placeholder="Reddish Brown"
-              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-            />
-          </label>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium">{t("dimensionsLabel")}</span>
-            <input
-              value={zrk.dimensions}
-              onChange={(e) => updateZrk("dimensions", e.target.value)}
-              placeholder="2440 × 1220 mm"
-              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">{t("thicknessLabel")}</span>
-            <input
-              value={zrk.thickness}
-              onChange={(e) => updateZrk("thickness", e.target.value)}
-              placeholder="16 mm"
-              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-            />
-          </label>
-        </div>
-
-        <label className="block">
-          <span className="text-sm font-medium">{t("idealApplicationsLabel")}</span>
-          <input
-            value={zrk.idealApplications}
-            onChange={(e) => updateZrk("idealApplications", e.target.value)}
-            placeholder="Kitchen Cabinets"
-            className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-          />
-        </label>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium">{t("materialCategory")}</span>
-            <input
-              value={zrk.materialCategory}
-              onChange={(e) => updateZrk("materialCategory", e.target.value)}
-              placeholder="UV Lux"
-              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium">{t("substrate")}</span>
-            <select
-              value={zrk.substrate}
-              onChange={(e) => updateZrk("substrate", e.target.value)}
-              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-            >
-              <option value="">—</option>
-              <option value="mdf">{t("substrateMdf")}</option>
-              <option value="chipboard">{t("substrateChipboard")}</option>
-            </select>
           </label>
         </div>
 
@@ -226,9 +166,10 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
             <input
               type="number"
               min={0}
-              value={zrk.stock}
-              onChange={(e) => updateZrk("stock", e.target.value)}
+              value={extra.stock}
+              onChange={(e) => updateExtra("stock", e.target.value)}
               className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+              required
             />
           </label>
           <label className="block">
@@ -236,29 +177,19 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
             <input
               type="number"
               min={0}
-              value={zrk.lowStockAt}
-              onChange={(e) => updateZrk("lowStockAt", e.target.value)}
+              value={extra.lowStockAt}
+              onChange={(e) => updateExtra("lowStockAt", e.target.value)}
               className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
             />
           </label>
         </div>
 
         <label className="block">
-          <span className="text-sm font-medium">{t("category")}</span>
-          <input
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder={t("categoryPlaceholder")}
-            className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-          />
-        </label>
-
-        <label className="block">
           <span className="text-sm font-medium">{t("description")}</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={3}
+            rows={2}
             className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
           />
         </label>
@@ -276,23 +207,92 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
           <label className="block">
             <span className="text-sm font-medium">{t("imageUrlLabel")}</span>
             <input
-              value={zrk.imageUrl}
-              onChange={(e) => updateZrk("imageUrl", e.target.value)}
-              placeholder="/catalog/3001.png"
+              value={extra.imageUrl}
+              onChange={(e) => updateExtra("imageUrl", e.target.value)}
+              placeholder="/products/handle.jpg"
               className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
             />
           </label>
         </div>
 
-        <label className="block">
-          <span className="text-sm font-medium">{t("technicalSheetUrlLabel")}</span>
-          <input
-            value={zrk.technicalSheetUrl}
-            onChange={(e) => updateZrk("technicalSheetUrl", e.target.value)}
-            placeholder="https://..."
-            className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
-          />
-        </label>
+        {sheetFields && (
+          <div className="space-y-4 border-t border-divider pt-4">
+            <p className="font-mono-data text-[10px] uppercase tracking-wider text-muted">
+              {t("sheetFieldsOptional")}
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium">{t("productCodeLabel")}</span>
+                <input
+                  value={extra.productCode}
+                  onChange={(e) => updateExtra("productCode", e.target.value)}
+                  className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium">{t("materialCategory")}</span>
+                <input
+                  value={extra.materialCategory}
+                  onChange={(e) => updateExtra("materialCategory", e.target.value)}
+                  placeholder="UV Lux"
+                  className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+                />
+              </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium">{t("surfaceFinishLabel")}</span>
+                <input
+                  value={extra.surfaceFinish}
+                  onChange={(e) => updateExtra("surfaceFinish", e.target.value)}
+                  className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium">{t("substrate")}</span>
+                <select
+                  value={extra.substrate}
+                  onChange={(e) => updateExtra("substrate", e.target.value)}
+                  className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+                >
+                  <option value="">—</option>
+                  <option value="mdf">{t("substrateMdf")}</option>
+                  <option value="chipboard">{t("substrateChipboard")}</option>
+                </select>
+              </label>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium">{t("dimensionsLabel")}</span>
+                <input
+                  value={extra.dimensions}
+                  onChange={(e) => updateExtra("dimensions", e.target.value)}
+                  className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium">{t("thicknessLabel")}</span>
+                <input
+                  value={extra.thickness}
+                  onChange={(e) => updateExtra("thickness", e.target.value)}
+                  className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
+        {!sheetFields && (
+          <label className="block">
+            <span className="text-sm font-medium">{t("productCodeLabel")}</span>
+            <input
+              value={extra.productCode}
+              onChange={(e) => updateExtra("productCode", e.target.value)}
+              placeholder="SKU / code"
+              className="mt-1 w-full rounded-sm border border-divider bg-base px-3 py-2.5"
+            />
+          </label>
+        )}
 
         <button
           type="submit"
@@ -308,15 +308,16 @@ export function ProductsAdmin({ initialProducts }: ProductsAdminProps) {
           <div key={p.id} className="flex gap-4 rounded-sm border border-divider bg-marble p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.image} alt={p.name} className="h-24 w-24 shrink-0 rounded-sm object-cover" />
-            <div className="flex-1 min-w-0">
-              {p.productCode && (
-                <p className="font-mono-data text-[10px] text-brass">{p.productCode}</p>
-              )}
+            <div className="min-w-0 flex-1">
+              <p className="font-mono-data text-[10px] uppercase text-brass">
+                {p.category}
+                {p.productCode ? ` · ${p.productCode}` : ""}
+              </p>
               <p className="font-display text-sm truncate">{p.name}</p>
-              <p className="font-mono-data text-brass text-xs">Rs {p.pricePKR.toLocaleString()}</p>
-              {p.surfaceFinish && (
-                <p className="text-xs text-muted">{p.surfaceFinish}</p>
-              )}
+              <p className="font-mono-data text-brass text-xs">
+                Rs {p.pricePKR.toLocaleString()}
+                {p.stock != null ? ` · stock ${p.stock}` : ""}
+              </p>
               <p className="text-xs text-muted line-clamp-2">{p.description}</p>
               <button
                 type="button"
