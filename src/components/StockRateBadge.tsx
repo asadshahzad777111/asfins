@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import { formatPKR } from "@/lib/rates";
 import {
   getStockStatus,
@@ -12,6 +13,7 @@ interface StockRateBadgeProps {
   rate: number;
   stock?: number | null;
   lowStockAt?: number | null;
+  unitKey?: "perSheet" | "each";
   className?: string;
 }
 
@@ -25,28 +27,31 @@ export function StockRateBadge({
   rate,
   stock,
   lowStockAt,
+  unitKey = "perSheet",
   className = "",
 }: StockRateBadgeProps) {
   const { t } = useLanguage();
   const status = getStockStatus(stock, lowStockAt);
 
   return (
-    <div className={`flex flex-wrap items-center gap-3 ${className}`}>
+    <div className={`flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center ${className}`}>
       {rate > 0 && (
-        <p className="font-mono-data text-lg text-brass">
-          <span className="mr-2 text-[10px] uppercase tracking-wider text-muted">
+        <p className="font-mono-data text-xl text-ink sm:text-2xl">
+          <span className="mr-2 block text-[10px] uppercase tracking-[0.16em] text-muted sm:mr-2 sm:inline">
             {t("rate")}
           </span>
-          {formatPKR(rate)}{" "}
-          <span className="text-sm text-muted">{t("perSheet")}</span>
+          {formatPKR(rate)}
+          <span className="ml-2 text-xs uppercase tracking-wider text-muted">
+            {t(unitKey as TranslationKey)}
+          </span>
         </p>
       )}
       <span
-        className={`inline-flex items-center border px-2.5 py-1 font-mono-data text-[10px] uppercase tracking-[0.14em] ${statusClass(status)}`}
+        className={`inline-flex w-fit items-center border px-2.5 py-1.5 font-mono-data text-[11px] uppercase tracking-[0.14em] ${statusClass(status)}`}
       >
         <span className="mr-1.5 text-muted/80">{t("stock")}</span>
         {t(stockStatusLabelKey(status))}
-        {typeof stock === "number" && stock > 0 ? ` · ${stock}` : ""}
+        {typeof stock === "number" ? ` · ${stock}` : ""}
       </span>
     </div>
   );

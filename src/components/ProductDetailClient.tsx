@@ -11,6 +11,7 @@ import {
   isSheetCategory,
   unitLabelForCategory,
 } from "@/lib/products/categories";
+import { productCatalogLabel } from "@/lib/products/shop-catalogs";
 import { whatsappUrl } from "@/lib/share";
 import type { Product } from "@/lib/products/types";
 
@@ -47,6 +48,9 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   });
   const displayRate = rate ?? product.pricePKR;
   const sheet = isSheetCategory(product.category);
+  const code = (product.productCode || "").trim();
+  const catalogLabel = sheet ? productCatalogLabel(product) : product.brandName;
+  const unitKey = unitLabelForCategory(product.category);
 
   const substrateLabel =
     product.substrate === "mdf"
@@ -57,7 +61,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const specs = (
     [
-      { labelKey: "productCode" as const, value: product.productCode },
+      { labelKey: "productCode" as const, value: code || undefined },
       { labelKey: "surfaceFinish" as const, value: product.surfaceFinish },
       { labelKey: "colorDescription" as const, value: product.colorDescription },
       { labelKey: "dimensions" as const, value: product.dimensions },
@@ -76,7 +80,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
   function handleAdd() {
     addItem({
       productId: product.id,
-      name: product.name,
+      name: code ? `${code} — ${product.name}` : product.name,
       pricePKR: displayRate,
       image: product.image,
       category: product.category,
@@ -87,9 +91,10 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
 
   const waMsg = [
     `Hi ASFins — I want to order:`,
+    code ? `Code: ${code}` : null,
     `${product.name}`,
-    product.productCode ? `Code: ${product.productCode}` : null,
     `Rate: ${formatPKR(displayRate)}`,
+    typeof product.stock === "number" ? `Stock: ${product.stock}` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -106,14 +111,24 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
-            className="overflow-hidden border border-divider bg-white"
+            className="relative overflow-hidden border border-divider bg-white"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={product.image}
-              alt={product.name}
+              alt={code ? `${code} — ${product.name}` : product.name}
               className="aspect-square w-full object-cover"
             />
+            {code && (
+              <div className="absolute left-3 top-3 z-10 border border-ink/15 bg-paper/95 px-3 py-2 shadow-sm backdrop-blur-sm sm:left-4 sm:top-4 sm:px-4 sm:py-3">
+                <p className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-muted">
+                  {t("productCode")}
+                </p>
+                <p className="font-mono-data text-2xl leading-none tracking-wide text-ink sm:text-3xl">
+                  {code}
+                </p>
+              </div>
+            )}
           </motion.div>
 
           <motion.div
@@ -121,17 +136,22 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            {product.brandName && (
+            {catalogLabel && (
               <p className="font-mono-data text-xs uppercase tracking-[0.3em] text-brass">
-                {product.brandName}
+                {catalogLabel}
               </p>
             )}
-            {series && (
-              <p className="mt-1 font-mono-data text-[10px] uppercase tracking-wider text-muted">
-                {series}
+
+            {code && (
+              <p className="mt-3 font-mono-data text-3xl tracking-wide text-ink sm:text-4xl">
+                <span className="mr-2 text-sm uppercase tracking-[0.14em] text-muted">
+                  {t("codeShort")}
+                </span>
+                {code}
               </p>
             )}
-            <h1 className="font-display mt-2 text-3xl text-charcoal sm:text-4xl">
+
+            <h1 className="font-display mt-2 text-2xl text-charcoal sm:text-3xl">
               {product.name}
             </h1>
 
@@ -140,10 +160,8 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                 rate={displayRate}
                 stock={product.stock}
                 lowStockAt={product.lowStockAt}
+                unitKey={unitKey}
               />
-              <p className="mt-1 font-mono-data text-[10px] uppercase tracking-wider text-muted">
-                {t(unitLabelForCategory(product.category))}
-              </p>
             </div>
 
             {product.description && (
@@ -197,7 +215,15 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
                             ? t("substrate")
                             : t(spec.labelKey)}
                         </th>
-                        <td>{spec.value}</td>
+                        <td
+                          className={
+                            spec.labelKey === "productCode"
+                              ? "font-mono-data text-base tracking-wide text-ink"
+                              : undefined
+                          }
+                        >
+                          {spec.value}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

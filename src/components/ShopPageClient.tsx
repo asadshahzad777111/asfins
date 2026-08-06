@@ -28,6 +28,28 @@ interface ShopPageClientProps {
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
+function matchesProductQuery(p: Product, q: string): boolean {
+  if (!q) return true;
+  const code = String(p.productCode ?? "").toLowerCase();
+  const qDigits = q.replace(/\D/g, "");
+  if (qDigits && code.replace(/\D/g, "").includes(qDigits)) return true;
+  if (code.includes(q)) return true;
+  const hay = [
+    p.name,
+    p.productCode,
+    p.brandName,
+    p.materialCategory,
+    p.category,
+    p.description,
+    p.colorDescription,
+    productCatalogLabel(p),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(q);
+}
+
 function ProductCard({ p }: { p: Product }) {
   const { t } = useLanguage();
   const rate = resolveSheetRate({
@@ -41,6 +63,7 @@ function ProductCard({ p }: { p: Product }) {
   const catalogLabel = isSheetCategory(p.category)
     ? productCatalogLabel(p)
     : p.brandName;
+  const code = (p.productCode || "").trim();
 
   return (
     <Link
@@ -51,35 +74,49 @@ function ProductCard({ p }: { p: Product }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={p.image}
-          alt={p.name}
+          alt={code ? `${code} — ${p.name}` : p.name}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
         />
+        {code && (
+          <div className="absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)] border border-ink/15 bg-paper/95 px-2.5 py-1.5 shadow-sm backdrop-blur-sm sm:left-3 sm:top-3 sm:px-3 sm:py-2">
+            <p className="font-mono-data text-[9px] uppercase tracking-[0.16em] text-muted">
+              {t("productCode")}
+            </p>
+            <p className="font-mono-data text-base font-medium leading-none tracking-wide text-ink sm:text-lg">
+              {code}
+            </p>
+          </div>
+        )}
       </div>
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
         {catalogLabel && (
-          <p className="font-mono-data text-[10px] uppercase tracking-[0.18em] text-brass">
+          <p className="font-mono-data text-[9px] uppercase tracking-[0.16em] text-brass sm:text-[10px] sm:tracking-[0.18em]">
             {catalogLabel}
           </p>
         )}
-        {p.productCode && (
-          <p className="mt-0.5 font-mono-data text-[10px] text-muted">
-            {p.productCode}
+        {code && (
+          <p className="font-mono-data text-sm tracking-wide text-ink sm:text-base">
+            <span className="text-muted">{t("codeShort")}: </span>
+            {code}
           </p>
         )}
-        <h2 className="font-display mt-1 text-lg leading-snug text-charcoal">
+        <h2 className="font-display text-base leading-snug text-charcoal sm:text-lg">
           {p.name}
         </h2>
-        <p className="mt-2 font-mono-data text-sm text-ink">
-          {rate != null ? formatPKR(rate) : t("ratesComingSoon")}
-          {rate != null && (
-            <span className="ml-1 text-[10px] uppercase tracking-wider text-muted">
-              {t(unitKey)}
-            </span>
-          )}
-        </p>
-        <p className="mt-auto pt-3 font-mono-data text-[10px] uppercase tracking-wider text-muted">
-          {t(stockStatusLabelKey(stock))}
-        </p>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="font-mono-data text-sm text-ink">
+            {rate != null ? formatPKR(rate) : t("ratesComingSoon")}
+            {rate != null && (
+              <span className="ml-1 text-[10px] uppercase tracking-wider text-muted">
+                {t(unitKey)}
+              </span>
+            )}
+          </p>
+          <p className="font-mono-data text-[10px] uppercase tracking-wider text-muted">
+            {t(stockStatusLabelKey(stock))}
+            {typeof p.stock === "number" ? ` · ${p.stock}` : ""}
+          </p>
+        </div>
       </div>
     </Link>
   );
@@ -128,22 +165,7 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
     }
 
     if (!q) return list;
-    return list.filter((p) => {
-      const hay = [
-        p.name,
-        p.productCode,
-        p.brandName,
-        p.materialCategory,
-        p.category,
-        p.description,
-        p.colorDescription,
-        productCatalogLabel(p),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
+    return list.filter((p) => matchesProductQuery(p, q));
   }, [
     typeFiltered,
     openCatalogId,
@@ -157,22 +179,7 @@ export function ShopPageClient({ products }: ShopPageClientProps) {
   /** Search across all type-filtered products */
   const searchResults = useMemo(() => {
     if (!searching) return [];
-    return typeFiltered.filter((p) => {
-      const hay = [
-        p.name,
-        p.productCode,
-        p.brandName,
-        p.materialCategory,
-        p.category,
-        p.description,
-        p.colorDescription,
-        productCatalogLabel(p),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
+    return typeFiltered.filter((p) => matchesProductQuery(p, q));
   }, [typeFiltered, searching, q]);
 
   const gridProducts = searching

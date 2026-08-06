@@ -86,16 +86,28 @@ export function HomePageClient({ featured }: HomePageClientProps) {
                   href={`/products/${p.id}`}
                   className="group border border-divider bg-paper transition-colors hover:border-ink/30"
                 >
-                  <div className="aspect-[4/3] overflow-hidden bg-base">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-base">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={p.image}
-                      alt={p.name}
+                      alt={p.productCode ? `${p.productCode} — ${p.name}` : p.name}
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                     />
+                    {p.productCode && (
+                      <div className="absolute left-2 top-2 border border-ink/15 bg-paper/95 px-2.5 py-1.5 backdrop-blur-sm">
+                        <p className="font-mono-data text-base tracking-wide text-ink">
+                          {p.productCode}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="p-4">
-                    <h3 className="font-display text-lg text-charcoal">{p.name}</h3>
+                    {p.productCode && (
+                      <p className="font-mono-data text-sm text-ink">
+                        {t("codeShort")}: {p.productCode}
+                      </p>
+                    )}
+                    <h3 className="font-display mt-1 text-lg text-charcoal">{p.name}</h3>
                     <p className="mt-2 font-mono-data text-sm text-ink">
                       {rate != null ? formatPKR(rate) : t("ratesComingSoon")}
                       {rate != null && (
