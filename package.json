@@ -18,6 +18,7 @@
     "fix-zrk-thumbs": "node scripts/fix-zrk-mirrored-thumbs.mjs",
     "sync-zrk": "node scripts/sync-zrk-mdf.mjs",
     "seed-mongo": "node scripts/seed-mongo.mjs",
+    "pull-cloud-data": "node scripts/pull-cloud-data.mjs",
     "seed-accessories": "node scripts/seed-accessories.mjs",
     "apply-uv-stock": "node scripts/apply-uv-zrk-stock.mjs",
     "prepare-zrk": "node scripts/prepare-zrk-local.mjs",

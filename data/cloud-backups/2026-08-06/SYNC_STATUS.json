@@ -1,0 +1,28 @@
+{
+  "syncedAt": "2026-08-06T06:02:52.678Z",
+  "source": "https://www.asfins.com",
+  "comparison": {
+    "catalogs": {
+      "live": 6,
+      "liveSwatches": 649
+    },
+    "products": {
+      "live": 637,
+      "local": 639,
+      "onlyLocal": [
+        "patex-el-1012",
+        "patex-el-1018"
+      ]
+    },
+    "scenes": {
+      "live": 3
+    }
+  },
+  "files": [
+    "catalogs.json",
+    "products.json",
+    "scenes.json",
+    "SYNC_STATUS.json"
+  ],
+  "note": "Public API snapshot for laptop use. Orders/inquiries need admin/Mongo credentials."
+}
